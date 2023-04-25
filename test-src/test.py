@@ -12,7 +12,7 @@ import json
 import re
 
 gen_parser = ArgumentParser(description='Generate schedule according to spec in file')
-gen_parser.add_argument('--src', dest='src')
+gen_parser.add_argument('--src', dest='src', required=True)
 gen_parser.add_argument('--bin', dest='bin', required=True)
 gen_parser.add_argument('--gen', dest='gen', action='store_true')
 gen_parser.add_argument('--seeds', dest='seeds')
