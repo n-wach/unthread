@@ -1,7 +1,7 @@
 #define _GNU_SOURCE
 #undef _FORTIFY_SOURCE
 
-#include <../include/pthread.h>
+#include <pthread.h>
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
