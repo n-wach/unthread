@@ -11,7 +11,7 @@ bin/posixtestsuite/conformance/interfaces/mmap/%: CFLAGS+=-lrt
 
 bin/posixtestsuite/%: posixtestsuite/%.c $(wildcard posixtestsuite/%/*) bin/unthread.o
 	@mkdir -p $$(dirname "$@")
-	$(CC) -o $@ $< bin/unthread.o $(CFLAGS) -I include -I posixtestsuite/include -g
+	$(CC) -o $@ $< bin/unthread.o $(CFLAGS) -I src/include -I posixtestsuite/include -g
 
 bin/posixtestsuite/%-pthread: posixtestsuite/%.c $(wildcard posixtestsuite/%/*)
 	@mkdir -p $$(dirname "$@")
@@ -75,7 +75,7 @@ bin/%-pthread: test-src/%.c include-util/unthread.h | bin
 	$(CC) -o $@ $< $(CFLAGS) -I include-util -g -pthread
 
 bin/%: test-src/%.c bin/unthread.o include/pthread.h include-util/unthread.h include/bits/pthreadtypes.h | bin
-	$(CC) -o $@ $< bin/unthread.o $(CFLAGS) -I include -I include-util -g
+	$(CC) -o $@ $< bin/unthread.o $(CFLAGS) -I src/include -I include-util -g
 
 bin/%.test: test-src/%.c bin/% test-src/test.py test-src/%.seeds
 	test-src/test.py --src $< --bin bin/$* --seeds test-src/$*.seeds
@@ -109,7 +109,7 @@ bin:
 	mkdir -p bin
 
 bin/unthread.o: src/unthread.c | bin
-	$(CC) -c -o $@ $< $(CFLAGS) -g -I include
+	$(CC) -c -o $@ $< $(CFLAGS) -g -I src/include
 
 bin/unthread-fuzz: src/unthread-fuzz.c | bin
 	$(CC) -o $@ $< $(CFLAGS) -g

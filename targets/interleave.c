@@ -4,6 +4,8 @@
 
 // Try with: UNTHREAD_GEN=true make test-src/interleave.seeds
 
+#include "src/include/unthread.h"
+
 /*
 BEGIN_TEST_SPEC
 ["GOT IT!", "MISSED"]
@@ -41,17 +43,18 @@ void* buggy(void *arg) {
   if(val != 40) goto pass;
   pthread_yield();
   if(val == 69) {
-    printf("GOT IT!");
+    __builtin_trap();
     return NULL;
   }
 
   pass:
-  printf("MISSED");
   return NULL;
 }
 
 int main() {
   pthread_t a, b;
+  uint32_t schedule[] = {0, 0, 0, 0, 0, 0, 0, 0};
+  unthread_set_sched_data(schedule, 8);
   pthread_create(&a, NULL, incr, NULL);
   pthread_create(&b, NULL, buggy, NULL);
   pthread_join(a, NULL);

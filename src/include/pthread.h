@@ -1,7 +1,9 @@
+// We are intentionally defining PTHREAD_H to prevent the inclusion of
+// the system pthread.h header.
 #ifndef PTHREAD_H
 #define PTHREAD_H
 
-#include <bits/pthreadtypes.h>
+#include "bits/pthreadtypes.h"
 #include <limits.h>
 #include <sched.h>
 #include <semaphore.h>

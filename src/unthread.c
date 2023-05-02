@@ -1,7 +1,7 @@
 #define _GNU_SOURCE
 #undef _FORTIFY_SOURCE
 
-#include <pthread.h>
+#include "include/pthread.h"
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -94,6 +94,7 @@ static const struct exit_reason EXIT_UNSUPPORTED = {6};
 #define PRNG_SEED_ENV "UNTHREAD_SEED"
 #define VERBOSE_ENV "UNTHREAD_VERBOSE"
 #define NOISE_FILE_ENV "UNTHREAD_FILE"
+#define SCHED_DATA_ENV "UNTHREAD_DATA"
 
 static void exit_reasoned(const struct exit_reason reason) {
   int retcode_offset = 40;
@@ -237,8 +238,8 @@ static struct pthread_list threads_ready = PTHREAD_EMPTY_LIST_INITIALIZER;
 // Number of live threads in the system
 static size_t threads_count = 1;
 
-// True if we are using PRNG-based entropy or false if file-based entropy
-static bool noise_prng;
+enum entropy_source { ENTROPY_PRNG, ENTROPY_FILE, ENTROPY_DATA };
+static enum entropy_source entropy_source;
 
 // File for file-based entropy
 static FILE *noise_file;
@@ -246,15 +247,22 @@ static FILE *noise_file;
 // State for PRGN-based entropy
 static uint32_t noise_prng_state[4];
 
+static uint32_t* sched_data = NULL;
+static size_t sched_data_len = 0;
+static size_t sched_data_index = 0;
+static bool repeat_sched = true;
+
+
 void __attribute__((constructor(1000))) pthread_constructor() {
   const char *verbose_str = getenv(VERBOSE_ENV);
   verbose = (verbose_str != NULL && strcmp(verbose_str, "true") == 0);
 
   const char *prng_str = getenv(PRNG_SEED_ENV);
   const char *file_str = getenv(NOISE_FILE_ENV);
+  const char *data_provider = getenv(SCHED_DATA_ENV);
 
   if (prng_str != NULL) {
-    noise_prng = true;
+    entropy_source = ENTROPY_PRNG;
 
     const size_t HEX_ELEM_LEN = sizeof(*noise_prng_state) * 2;
     const size_t HEX_ARRAY_LEN = sizeof(noise_prng_state) * 2;
@@ -282,11 +290,17 @@ void __attribute__((constructor(1000))) pthread_constructor() {
       noise_prng_state[i / HEX_ELEM_LEN] <<= 4;
       noise_prng_state[i / HEX_ELEM_LEN] |= unhexed;
     }
-  } else {
-    CHECK(EXIT_MISC, file_str != NULL, "No seed or entropy file specified");
+  } else if (file_str != NULL) {
+    entropy_source = ENTROPY_FILE;
     noise_file = fopen(file_str, "r");
     CHECK(EXIT_IO, noise_file != NULL, "Failed reading noise file: %s",
           strerror(errno));
+  } else if (data_provider != NULL) {
+    entropy_source = ENTROPY_DATA;
+    
+  } else {
+    CHECK(EXIT_MISC, false, "Must specify UNTHREAD_SEED, UNTHREAD_FILE, or "
+                            "UNTHREAD_DATA_PROVIDER");
   }
 }
 
@@ -382,8 +396,41 @@ static uint32_t rand_u32_io(uint32_t len) {
   return pick;
 }
 
+// If UNTHREAD_DATA environment variable set, then this function must be called
+// before any other unthread functions.
+void unthread_set_sched_data(uint32_t* data, size_t len) {
+  CHECK(EXIT_MISC, data != NULL, "Scheduling data must not be NULL");
+  sched_data = data;
+  sched_data_len = len;
+  sched_data_index = 0;
+}
+
+static uint32_t rand_u32_sched_data(uint32_t len) {
+  CHECK(EXIT_MISC, sched_data != NULL, "Scheduling data never set");
+  size_t next_index = sched_data_index + 1;
+  if(repeat_sched && next_index >= sched_data_len) {
+    next_index = 0;
+  }
+  CHECK(EXIT_ENTROPY, next_index < sched_data_len, "Scheduling data exhausted");
+  sched_data_index = next_index;
+  uint32_t result = sched_data[sched_data_index];
+  if(result >= len) {
+    result = len - 1;
+  }
+  return result;
+}
+
 static uint32_t rand_u32(uint32_t len) {
-  return noise_prng ? rand_u32_prng(len) : rand_u32_io(len);
+  switch(entropy_source) {
+    case ENTROPY_PRNG:
+      return rand_u32_prng(len);
+    case ENTROPY_FILE:
+      return rand_u32_io(len);
+    case ENTROPY_DATA:
+      return rand_u32_sched_data(len);
+  }
+  CHECK(EXIT_MISC, false, "Invalid entropy source");
+  return 0;
 }
 
 static void ensure_cap(struct pthread_list *list, size_t additional) {
