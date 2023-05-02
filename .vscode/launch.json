@@ -5,11 +5,35 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug",
+            "name": "Debug interleave",
             "preLaunchTask": "build-all-debug",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/bazel-bin/targets/interleave",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": false
+                }
+            ],
+            "sourceFileMap": {
+                "./csu/../": "/usr/src/glibc"
+            }
+        },
+        {
+            "name": "Debug interleave_fuzz_test",
+            "preLaunchTask": "build-all-debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bazel-bin/targets/interleave_fuzz_test_bin",
             "args": [],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
