@@ -52,14 +52,14 @@ void* buggy(void *arg) {
 }
 
 int main() {
-  pthread_t a, b;
-  uint32_t schedule[] = {1, 2, 3};
+  // Set up thread schedule.
   // unthread_configure((struct entropy_configuration){
   //   .entropy_source = ENTROPY_PRNG_SEED,
   //   .prng_seed = {
   //     .state = {0xdeadbeef, 0xdeadbeef, 0xdeadbeef, 0xdeadbeef},
   //   },
   // });
+  uint32_t schedule[] = {1, 2, 3};
   unthread_configure((struct entropy_configuration){
     .entropy_source = ENTROPY_SCHEDULE,
     .schedule = {
@@ -68,6 +68,8 @@ int main() {
       .end_behavior = SCHEDULE_END_LOOP,
     },
   });
+
+  pthread_t a, b;
   pthread_create(&a, NULL, incr, NULL);
   pthread_create(&b, NULL, buggy, NULL);
   pthread_join(a, NULL);
