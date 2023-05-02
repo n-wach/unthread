@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "pthread.h": "c",
+        "unthread.h": "c",
+        "unthreadtypes.h": "c",
+        "struct_sched_param.h": "c",
+        "stddef.h": "c",
+        "pthreadtypes.h": "c",
+        "functional": "c"
+    }
+}
