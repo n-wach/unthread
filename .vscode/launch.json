@@ -13,12 +13,7 @@
             "args": [],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
-            "environment": [
-                {
-                    "name": "UNTHREAD_DATA",
-                    "value": "true"
-                }
-            ],
+            "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "/usr/bin/gdb",

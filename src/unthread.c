@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #undef _FORTIFY_SOURCE
 
+#include "include/unthread.h"
 #include "include/pthread.h"
 #include <assert.h>
 #include <errno.h>
@@ -15,7 +16,6 @@
 #include <ucontext.h>
 
 #define NAME "unthread"
-#define NOISE_BUF_SIZE 1024
 
 #ifndef UNTHREAD_MAX_RECURSIVE_LOCKS
 #define UNTHREAD_MAX_RECURSIVE_LOCKS 1024
@@ -87,14 +87,10 @@ static const struct exit_reason EXIT_DEADLOCK = {1};
 static const struct exit_reason EXIT_ILLEGAL = {2};
 static const struct exit_reason EXIT_ALLOC = {3};
 static const struct exit_reason EXIT_MISC = {4};
-static const struct exit_reason EXIT_IO = {5};
-static const struct exit_reason EXIT_UNSUPPORTED = {6};
+static const struct exit_reason EXIT_UNSUPPORTED = {5};
 
 #define RETCODE_OFFSET_ENV "UNTHREAD_RET_OFFSET"
-#define PRNG_SEED_ENV "UNTHREAD_SEED"
 #define VERBOSE_ENV "UNTHREAD_VERBOSE"
-#define NOISE_FILE_ENV "UNTHREAD_FILE"
-#define SCHED_DATA_ENV "UNTHREAD_DATA"
 
 static void exit_reasoned(const struct exit_reason reason) {
   int retcode_offset = 40;
@@ -238,70 +234,22 @@ static struct pthread_list threads_ready = PTHREAD_EMPTY_LIST_INITIALIZER;
 // Number of live threads in the system
 static size_t threads_count = 1;
 
-enum entropy_source { ENTROPY_PRNG, ENTROPY_FILE, ENTROPY_DATA };
-static enum entropy_source entropy_source;
-
-// File for file-based entropy
-static FILE *noise_file;
+static struct entropy_configuration entropy_configuration = {
+    .entropy_source = ENTROPY_ZEROS,
+};
 
 // State for PRGN-based entropy
 static uint32_t noise_prng_state[4];
 
+// State for schedule-based entropy
 static uint32_t* sched_data = NULL;
 static size_t sched_data_len = 0;
 static size_t sched_data_index = 0;
-static bool repeat_sched = true;
 
 
-void __attribute__((constructor(1000))) pthread_constructor() {
+void __attribute__((constructor)) pthread_constructor() {
   const char *verbose_str = getenv(VERBOSE_ENV);
   verbose = (verbose_str != NULL && strcmp(verbose_str, "true") == 0);
-
-  const char *prng_str = getenv(PRNG_SEED_ENV);
-  const char *file_str = getenv(NOISE_FILE_ENV);
-  const char *data_provider = getenv(SCHED_DATA_ENV);
-
-  if (prng_str != NULL) {
-    entropy_source = ENTROPY_PRNG;
-
-    const size_t HEX_ELEM_LEN = sizeof(*noise_prng_state) * 2;
-    const size_t HEX_ARRAY_LEN = sizeof(noise_prng_state) * 2;
-
-    CHECK(EXIT_MISC, strlen(prng_str) == HEX_ARRAY_LEN,
-          "Seed has incorrect length (%zu) - must be %zu characters",
-          strlen(prng_str), HEX_ARRAY_LEN);
-
-    for (size_t i = 0; i < HEX_ARRAY_LEN; i++) {
-      char c = prng_str[i];
-
-      int unhexed = -1;
-
-      if (c >= '0' && c <= '9') {
-        unhexed = c - '0';
-      } else if (c >= 'a' && c <= 'f') {
-        unhexed = 10 + (c - 'a');
-      } else if (c >= 'A' && c <= 'F') {
-        unhexed = 10 + (c - 'A');
-      }
-
-      CHECK(EXIT_MISC, unhexed != -1,
-            "Seed has invalid character (%c) - must be a hex character", c);
-
-      noise_prng_state[i / HEX_ELEM_LEN] <<= 4;
-      noise_prng_state[i / HEX_ELEM_LEN] |= unhexed;
-    }
-  } else if (file_str != NULL) {
-    entropy_source = ENTROPY_FILE;
-    noise_file = fopen(file_str, "r");
-    CHECK(EXIT_IO, noise_file != NULL, "Failed reading noise file: %s",
-          strerror(errno));
-  } else if (data_provider != NULL) {
-    entropy_source = ENTROPY_DATA;
-    
-  } else {
-    CHECK(EXIT_MISC, false, "Must specify UNTHREAD_SEED, UNTHREAD_FILE, or "
-                            "UNTHREAD_DATA_PROVIDER");
-  }
 }
 
 static inline uint32_t rotl(const uint32_t x, int k) {
@@ -323,95 +271,24 @@ uint32_t rand_u32_prng(uint32_t len) {
   return ((uint64_t)result * len) >> 32;
 }
 
-static uint32_t rand_u32_io(uint32_t len) {
-  // Pick a random number by interpreting the noise input as an arithmetic
-  // coded stream.
-  //
-  // This has two benefits:
-  //
-  // 1. The picks are uniformly random (or at least very close).
-  // 2. The picks use the noise input very efficiently; one bit change is
-  //    guarenteed to change the picked outcome. This can potentially make
-  //    fuzzing explore a larger space quicker.
-  //
-  // It's not totally clear if the above benefits outweighs its generally slow
-  // performance.
-
-  static uint32_t noise_min = 0;
-  static uint32_t noise_max = UINT32_MAX;
-  static uint8_t buf[NOISE_BUF_SIZE];
-  static size_t buf_offset = 0;
-  static size_t buf_len = 0;
-
-  assert(len > 0);
-
-  if (len == 1) {
-    return 0;
-  }
-
-  uint32_t segment_min, segment_max;
-
-  while (true) {
-    segment_min = ((uint64_t)noise_min * len) >> 32;
-    segment_max = ((uint64_t)noise_max * len) >> 32;
-
-    if (segment_min == segment_max) {
-      break;
-    }
-
-    if (buf_offset >= len) {
-      buf_len =
-          fread(buf, sizeof(*buf), sizeof(buf) / sizeof(*buf), noise_file);
-      buf_offset = 0;
-
-      CHECK(EXIT_ENTROPY, buf_len != 0 || !feof(noise_file),
-            "Entropy exhausted");
-      CHECK(EXIT_IO, buf_len != 0, "IO Error: %s",
-            strerror(ferror(noise_file)));
-    }
-
-    uint64_t noise_size = (uint64_t)(noise_max - noise_min) + 1;
-    uint8_t noise_segment = buf[buf_offset++];
-
-    noise_min += (noise_size * noise_segment) >> 8;
-    noise_max -= ((noise_size * (UINT8_MAX - noise_segment)) >> 8) - 1;
-  }
-
-  uint32_t pick = segment_min;
-  assert(pick < len);
-
-  uint32_t segment_range_min = ((uint64_t)(pick + 0) << 32) / len;
-  uint32_t segment_range_max = ((uint64_t)(pick + 1) << 32) / len - 1;
-  uint32_t segment_range_size = segment_range_max - segment_range_min + 1;
-
-  assert(noise_min >= segment_range_min);
-  assert(noise_max <= segment_range_max);
-
-  // Renormalize to the picked segment.
-  noise_min =
-      ((uint64_t)(noise_min - segment_range_min) << 32) / segment_range_size;
-  noise_max = UINT32_MAX - ((uint64_t)(segment_range_max - noise_max) << 32) /
-                               segment_range_size;
-
-  return pick;
-}
-
-// If UNTHREAD_DATA environment variable set, then this function must be called
-// before any other unthread functions.
-void unthread_set_sched_data(uint32_t* data, size_t len) {
-  CHECK(EXIT_MISC, data != NULL, "Scheduling data must not be NULL");
-  sched_data = data;
-  sched_data_len = len;
-  sched_data_index = 0;
-}
-
 static uint32_t rand_u32_sched_data(uint32_t len) {
-  CHECK(EXIT_MISC, sched_data != NULL, "Scheduling data never set");
   size_t next_index = sched_data_index + 1;
-  if(repeat_sched && next_index >= sched_data_len) {
-    next_index = 0;
+  if(next_index >= sched_data_len) {
+    // We're at the end. Consult the schedule.end_behavior.
+    switch(entropy_configuration.schedule.end_behavior) {
+      case SCHEDULE_END_LOOP:
+        next_index = 0;
+        break;
+      case SCHEDULE_END_ZEROS:
+        return 0;
+      case SCHEDULE_END_EXIT:
+        CHECK(EXIT_ENTROPY, false, "Scheduling data exhausted");
+      case SCHEDULE_END_TRAP:
+        // End of schedule!
+        __builtin_trap();
+    }
   }
-  CHECK(EXIT_ENTROPY, next_index < sched_data_len, "Scheduling data exhausted");
+
   sched_data_index = next_index;
   uint32_t result = sched_data[sched_data_index];
   if(result >= len) {
@@ -421,16 +298,43 @@ static uint32_t rand_u32_sched_data(uint32_t len) {
 }
 
 static uint32_t rand_u32(uint32_t len) {
-  switch(entropy_source) {
-    case ENTROPY_PRNG:
-      return rand_u32_prng(len);
-    case ENTROPY_FILE:
-      return rand_u32_io(len);
-    case ENTROPY_DATA:
-      return rand_u32_sched_data(len);
+  // If len is 1, there's no choice. Just return 0.
+  // This helps keep scheduling data short.
+  if(len == 1) {
+    return 0;
   }
-  CHECK(EXIT_MISC, false, "Invalid entropy source");
-  return 0;
+  // Otherwise, consult the entropy_configuration.
+  switch(entropy_configuration.entropy_source) {
+    case ENTROPY_PRNG_SEED:
+      return rand_u32_prng(len);
+    case ENTROPY_SCHEDULE:
+      return rand_u32_sched_data(len);
+    case ENTROPY_ZEROS:
+      return 0;
+  }
+  __builtin_unreachable();
+}
+
+void unthread_configure(struct entropy_configuration config) {
+  entropy_configuration = config;
+  switch(entropy_configuration.entropy_source) {
+    case ENTROPY_PRNG_SEED:
+      noise_prng_state[0] = config.prng_seed.state[0];
+      noise_prng_state[1] = config.prng_seed.state[1];
+      noise_prng_state[2] = config.prng_seed.state[2];
+      noise_prng_state[3] = config.prng_seed.state[3];
+      break;
+    case ENTROPY_SCHEDULE:
+      CHECK(EXIT_ENTROPY, config.schedule.data != NULL, "No scheduling data provided");
+      sched_data = config.schedule.data;
+      sched_data_len = config.schedule.data_len;
+      sched_data_index = 0;
+      break;
+    case ENTROPY_ZEROS:
+      break;
+    default:
+      CHECK(EXIT_ENTROPY, false, "Invalid entropy source");
+  };
 }
 
 static void ensure_cap(struct pthread_list *list, size_t additional) {
