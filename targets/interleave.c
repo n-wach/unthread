@@ -2,9 +2,9 @@
 #include <stdio.h>
 
 void* incr(int* val) {
-  while(*val < 100) {
+  while(*val < 20) {
     unthread_yield();
-    *val++;
+    (*val)++;
   }
 }
 
@@ -24,18 +24,17 @@ void* buggy(int *val) {
 
   if(*val != 7) goto ok;
   unthread_yield();
-    __builtin_trap();
 
-  if(*val != 22) goto ok;
+  if(*val != 12) goto ok;
   unthread_yield();
 
-  if(*val != 22) goto ok;
+  if(*val != 15) goto ok;
   unthread_yield();
 
-  if(*val != 40) goto ok;
+  if(*val != 15) goto ok;
   unthread_yield();
   
-  if(*val == 69) {
+  if(*val == 17) {
     // a "bug"!
     __builtin_trap();
   }

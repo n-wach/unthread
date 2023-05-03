@@ -272,12 +272,16 @@ uint32_t rand_u32_prng(uint32_t len) {
 }
 
 static uint32_t rand_u32_sched_data(uint32_t len) {
-  size_t next_index = sched_data_index + 1;
-  if(next_index > sched_data_len) {
+  if(sched_data_index >= sched_data_len) {
     // We're at the end. Consult the schedule.end_behavior.
     switch(entropy_configuration.schedule.end_behavior) {
       case SCHEDULE_END_LOOP:
-        next_index = 0;
+        if (sched_data_len == 0) {
+          // What does it mean to LOOP when the schedule is empty?
+          // Just return 0.
+          return 0;
+        }
+        sched_data_index = 0;
         break;
       case SCHEDULE_END_ZEROS:
         return 0;
@@ -289,8 +293,8 @@ static uint32_t rand_u32_sched_data(uint32_t len) {
     }
   }
 
-  sched_data_index = next_index;
-  uint32_t result = sched_data[sched_data_index - 1] % len;
+  uint32_t result = sched_data[sched_data_index] % len;
+  sched_data_index++;
   //fprintf(stderr, "rand_u32_sched_data(%u) = %u\n", len, result);
   return result;
 }

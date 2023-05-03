@@ -10,7 +10,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     .schedule = {
       .data = (uint32_t*) data,
       .data_len = size / sizeof(uint32_t),
-      .end_behavior = SCHEDULE_END_ZEROS,
+      .end_behavior = SCHEDULE_END_LOOP,
     },
   });
 
