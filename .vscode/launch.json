@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Debug interleave",
-            "preLaunchTask": "build-all-debug",
+            "preLaunchTask": "build-interleave",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/bazel-bin/targets/interleave",
@@ -30,11 +30,13 @@
         },
         {
             "name": "Debug interleave_fuzz_test",
-            "preLaunchTask": "build-all-debug",
+            "preLaunchTask": "build-interleave-fuzz-test",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/bazel-bin/targets/interleave_fuzz_test_bin",
-            "args": [],
+            "args": [
+                "-detect_leaks=0",
+            ],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [],

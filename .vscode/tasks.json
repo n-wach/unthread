@@ -6,7 +6,16 @@
         {
             "label": "build-all-debug",
             "type": "shell",
-            "command": "bazel build --compilation_mode=dbg //...",
+            "command": "bazel build //...",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "build-interleave",
+            "type": "shell",
+            "command": "bazel build //targets:interleave",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -20,6 +29,15 @@
                 "kind": "none"
             },
             "problemMatcher": []
+        },
+        {
+            "label": "build-interleave-fuzz-test",
+            "type": "shell",
+            "command": "bazel build --config=asan-libfuzzer //targets:interleave_fuzz_test",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         }
     ]
 }
