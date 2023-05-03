@@ -272,7 +272,6 @@ uint32_t rand_u32_prng(uint32_t len) {
 }
 
 static uint32_t rand_u32_sched_data(uint32_t len) {
-  return 0;
   size_t next_index = sched_data_index + 1;
   if(next_index > sched_data_len) {
     // We're at the end. Consult the schedule.end_behavior.
@@ -291,29 +290,32 @@ static uint32_t rand_u32_sched_data(uint32_t len) {
   }
 
   sched_data_index = next_index;
-  uint32_t result = sched_data[sched_data_index - 1];
-  if(result >= len) {
-    result = len - 1;
-  }
+  uint32_t result = sched_data[sched_data_index - 1] % len;
+  //fprintf(stderr, "rand_u32_sched_data(%u) = %u\n", len, result);
   return result;
 }
 
 static uint32_t rand_u32(uint32_t len) {
-  // If len is 1, there's no choice. Just return 0.
-  // This helps keep scheduling data short.
   if(len == 1) {
+    // shortcircuit
     return 0;
   }
-  // Otherwise, consult the entropy_configuration.
+  uint32_t result;
   switch(entropy_configuration.entropy_source) {
     case ENTROPY_PRNG_SEED:
-      return rand_u32_prng(len);
+      result = rand_u32_prng(len);
+      break;
     case ENTROPY_SCHEDULE:
-      return rand_u32_sched_data(len);
+      result = rand_u32_sched_data(len);
+      break;
     case ENTROPY_ZEROS:
-      return 0;
+      result = 0;
+      break;
+    default:
+      __builtin_unreachable();
   }
-  __builtin_unreachable();
+  //fprintf(stderr, "rand_u32(%u) = %u\n", len, result);
+  return result;
 }
 
 void unthread_configure(struct entropy_configuration config) {

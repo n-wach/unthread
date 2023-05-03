@@ -13,9 +13,27 @@
             }
         },
         {
-            "label": "build-interleave",
+            "label": "build-interleave-fuzz-seed",
             "type": "shell",
-            "command": "bazel build //targets:interleave",
+            "command": "bazel build --config=asan-libfuzzer //targets:interleave_fuzz_seed",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "build-interleave-fuzz-schedule",
+            "type": "shell",
+            "command": "bazel build --config=asan-libfuzzer //targets:interleave_fuzz_schedule",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "build-interleave-main",
+            "type": "shell",
+            "command": "bazel build //targets:interleave_main",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -30,14 +48,5 @@
             },
             "problemMatcher": []
         },
-        {
-            "label": "build-interleave-fuzz-test",
-            "type": "shell",
-            "command": "bazel build --config=asan-libfuzzer //targets:interleave_fuzz_test",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            }
-        }
     ]
 }

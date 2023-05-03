@@ -6,6 +6,7 @@
         "struct_sched_param.h": "c",
         "stddef.h": "c",
         "pthreadtypes.h": "c",
-        "functional": "c"
+        "functional": "c",
+        "cstring": "c"
     }
 }
