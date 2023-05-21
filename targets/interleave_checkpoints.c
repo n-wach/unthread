@@ -8,6 +8,9 @@ void* incr(int* val) {
   }
 }
 
+// Does adding "checkpoint" functions help the fuzzer explore the space?
+// (No, it doesn't seem to help much. The edges after each if statement 
+// are sufficient features to explore the space.)
 void ckpt0() {};
 void ckpt1() {};
 void ckpt2() {};
@@ -62,7 +65,7 @@ void* buggy(int *val) {
   return 0;
 }
 
-int run_threads() {
+int interleave() {
   int val = 0;
   
   pthread_t a, b;

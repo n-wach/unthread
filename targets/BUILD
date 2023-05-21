@@ -1,3 +1,5 @@
+load("@rules_fuzzing//fuzzing:cc_defs.bzl", "cc_fuzz_test")
+
 cc_library(
     name = "interleave",
     srcs = ["interleave.c"],
@@ -16,8 +18,6 @@ cc_binary(
     visibility = ["//visibility:public"],
 )
 
-load("@rules_fuzzing//fuzzing:cc_defs.bzl", "cc_fuzz_test")
-
 cc_fuzz_test(
     name = "interleave_fuzz_schedule",
     srcs = ["interleave_fuzz_schedule.c"],
@@ -34,11 +34,10 @@ cc_fuzz_test(
     ],
 )
 
-
-# The same thing, but with function checkpoints
+# The same thing, but with function "checkpoints"
 cc_library(
     name = "checkpoints",
-    srcs = ["interleave_function_checkpoints.c"],
+    srcs = ["interleave_checkpoints.c"],
     visibility = ["//visibility:public"],
     deps = [
         "//src:unthread",

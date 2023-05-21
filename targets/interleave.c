@@ -42,7 +42,7 @@ void* buggy(int *val) {
   return 0;
 }
 
-int run_threads() {
+int interleave() {
   int val = 0;
   
   pthread_t a, b;

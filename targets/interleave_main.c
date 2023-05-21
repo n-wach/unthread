@@ -1,7 +1,7 @@
 #include "src/include/unthread.h"
 #include <stdio.h>
 
-extern void run_threads();
+extern void interleave();
 
 int main() {
   // Set up thread schedule.
@@ -13,5 +13,5 @@ int main() {
     },
   });
 
-  run_threads();
+  interleave();
 }

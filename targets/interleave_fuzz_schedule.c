@@ -1,7 +1,7 @@
 #include "src/include/unthread.h"
 #include <stdio.h>
 
-extern void run_threads();
+extern void interleave();
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   // Set up thread schedule.
@@ -14,5 +14,5 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     },
   });
 
-  run_threads();
+  interleave();
 }
