@@ -7,6 +7,8 @@
         "stddef.h": "c",
         "pthreadtypes.h": "c",
         "functional": "c",
-        "cstring": "c"
+        "cstring": "c",
+        "posixtest.h": "c",
+        "stdio.h": "c"
     }
 }

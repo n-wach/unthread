@@ -2,8 +2,9 @@
 #undef _FORTIFY_SOURCE
 
 #include "include/unthread.h"
-#include "include/pthread.h"
+#include <pthread.h>
 #include <assert.h>
+#include <dlfcn.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <limits.h>
@@ -14,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ucontext.h>
+#include <threads.h>
 
 #define NAME "unthread"
 
@@ -55,7 +57,7 @@ enum thread_state {
   // attempt to join with it is an error.
   TERMINATED,
 
-  // When the thread has been canceled/called unthread_exit but has not been
+  // When the thread has been canceled/called pthread_exit but has not been
   // joined yet. The thread
   // is still there until another thread joins with it.
   STOPPED,
@@ -250,6 +252,267 @@ static size_t sched_data_index = 0;
 void __attribute__((constructor)) pthread_constructor() {
   const char *verbose_str = getenv(VERBOSE_ENV);
   verbose = (verbose_str != NULL && strcmp(verbose_str, "true") == 0);
+  load_real_pthread_functions();
+}
+
+// This next section is for passing through to the real pthreads library. 
+// We keep a thread-local variable to determine if we pass through. If 1, 
+// all pthread calls will be passed through to the real pthreads library.
+thread_local int should_pass_to_real_pthreads = 0;
+
+#define PASS_TO_REAL (should_pass_to_real_pthreads)
+#define CHECK_PASSTHROUGH(name, ...) \
+  if (PASS_TO_REAL) {          \
+    return REAL(name)(__VA_ARGS__); \
+  }
+
+#define REAL(name) real_##name
+#define LOAD_REAL_PTHREAD_FUNCTION(name) REAL(name) = dlsym(RTLD_NEXT, #name);
+
+#define DECLARE_REAL_PTHREAD_FUNCTION(name) int* REAL(name)();
+
+int (*real_pthread_getschedparam)(pthread_t thread, int *policy,
+                          struct sched_param *param);
+int (*real_pthread_setschedparam)(pthread_t thread, int policy,
+                          const struct sched_param *param);
+
+int (*real_pthread_attr_destroy)(pthread_attr_t *);
+int (*real_pthread_attr_getdetachstate)(const pthread_attr_t *, int *);
+int (*real_pthread_attr_getguardsize)(const pthread_attr_t *, size_t *);
+int (*real_pthread_attr_getinheritsched)(const pthread_attr_t *, int *);
+int (*real_pthread_attr_getschedparam)(const pthread_attr_t *, struct sched_param *);
+int (*real_pthread_attr_getschedpolicy)(const pthread_attr_t *, int *);
+int (*real_pthread_attr_getscope)(const pthread_attr_t *, int *);
+int (*real_pthread_attr_getstackaddr)(const pthread_attr_t *, void **);
+int (*real_pthread_attr_getstacksize)(const pthread_attr_t *, size_t *);
+int (*real_pthread_attr_getstack)(pthread_attr_t *attr, void **stackaddr,
+                          size_t *stacksize);
+int (*real_pthread_attr_init)(pthread_attr_t *);
+int (*real_pthread_attr_setdetachstate)(pthread_attr_t *, int);
+int (*real_pthread_attr_setguardsize)(pthread_attr_t *, size_t);
+int (*real_pthread_attr_setinheritsched)(pthread_attr_t *, int);
+int (*real_pthread_attr_setschedparam)(pthread_attr_t *, const struct sched_param *);
+int (*real_pthread_attr_setschedpolicy)(pthread_attr_t *, int);
+int (*real_pthread_attr_setscope)(pthread_attr_t *, int);
+int (*real_pthread_attr_setstackaddr)(pthread_attr_t *, void *);
+int (*real_pthread_attr_setstacksize)(pthread_attr_t *, size_t);
+int (*real_pthread_attr_setstack)(pthread_attr_t *attr, void *stackaddr,
+                          size_t stacksize);
+
+int (*real_pthread_getattr_np)(pthread_t thread, pthread_attr_t *attr);
+
+int (*real_pthread_setcancelstate)(int state, int *oldstate);
+int (*real_pthread_setcanceltype)(int type, int *oldtype);
+int (*real_pthread_cancel)(pthread_t);
+int (*real_pthread_create)(pthread_t *, const pthread_attr_t *, void *(*)(void *),
+                   void *);
+int (*real_pthread_join)(pthread_t thread, void **retval);
+void (*real_pthread_exit)(void *retval);
+int (*real_pthread_yield)();
+pthread_t (*real_pthread_self)();
+int (*real_pthread_detach)(pthread_t thread);
+int (*real_pthread_equal)(pthread_t, pthread_t);
+void (*real_pthread_testcancel)(void);
+
+int (*real_pthread_mutex_destroy)(pthread_mutex_t *mutex);
+int (*real_pthread_mutex_init)(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr);
+int (*real_pthread_mutex_lock)(pthread_mutex_t *mutex);
+int (*real_pthread_mutex_trylock)(pthread_mutex_t *mutex);
+int (*real_pthread_mutex_unlock)(pthread_mutex_t *mutex);
+int (*real_pthread_mutex_timedlock)(pthread_mutex_t *mutex,
+                            const struct timespec *abs_timeout);
+int (*real_pthread_mutex_getprioceiling)(const pthread_mutex_t *mutex,
+                                 int *prioceiling);
+int (*real_pthread_mutex_setprioceiling)(pthread_mutex_t *mutex, int prioceiling,
+                                 int *old_ceiling);
+int (*real_pthread_mutexattr_getprioceiling)(const pthread_mutexattr_t *, int *);
+int (*real_pthread_mutexattr_getprotocol)(const pthread_mutexattr_t *, int *);
+int (*real_pthread_mutexattr_getpshared)(const pthread_mutexattr_t *, int *);
+int (*real_pthread_mutexattr_gettype)(const pthread_mutexattr_t *, int *);
+int (*real_pthread_mutexattr_getrobust)(const pthread_mutexattr_t *, int *);
+int (*real_pthread_mutexattr_init)(pthread_mutexattr_t *);
+int (*real_pthread_mutexattr_setprioceiling)(pthread_mutexattr_t *, int);
+int (*real_pthread_mutexattr_setprotocol)(pthread_mutexattr_t *, int);
+int (*real_pthread_mutexattr_setpshared)(pthread_mutexattr_t *, int);
+int (*real_pthread_mutexattr_setrobust)(pthread_mutexattr_t *, int);
+int (*real_pthread_mutexattr_settype)(pthread_mutexattr_t *, int);
+int (*real_pthread_mutexattr_destroy)(pthread_mutexattr_t *);
+
+int (*real_pthread_cond_broadcast)(pthread_cond_t *);
+int (*real_pthread_cond_destroy)(pthread_cond_t *);
+int (*real_pthread_cond_init)(pthread_cond_t *, const pthread_condattr_t *);
+int (*real_pthread_cond_signal)(pthread_cond_t *);
+int (*real_pthread_cond_timedwait)(pthread_cond_t *, pthread_mutex_t *,
+                           const struct timespec *);
+int (*real_pthread_cond_wait)(pthread_cond_t *, pthread_mutex_t *);
+
+int (*real_pthread_condattr_destroy)(pthread_condattr_t *);
+int (*real_pthread_condattr_getpshared)(const pthread_condattr_t *, int *);
+int (*real_pthread_condattr_getclock)(pthread_condattr_t *restrict attr,
+                              clockid_t *restrict clock_id);
+int (*real_pthread_condattr_init)(pthread_condattr_t *);
+int (*real_pthread_condattr_setpshared)(pthread_condattr_t *, int);
+int (*real_pthread_condattr_setclock)(pthread_condattr_t *attr, clockid_t clock_id);
+
+int (*real_pthread_key_create)(pthread_key_t *key, void (*destructor)(void *));
+int (*real_pthread_key_delete)(pthread_key_t key);
+int (*real_pthread_setspecific)(pthread_key_t key, const void *value);
+void *(*real_pthread_getspecific)(pthread_key_t key);
+
+int (*real_pthread_rwlock_destroy)(pthread_rwlock_t *);
+int (*real_pthread_rwlock_init)(pthread_rwlock_t *, const pthread_rwlockattr_t *);
+int (*real_pthread_rwlock_rdlock)(pthread_rwlock_t *);
+int (*real_pthread_rwlock_timedrdlock)(pthread_rwlock_t *, const struct timespec *);
+int (*real_pthread_rwlock_timedwrlock)(pthread_rwlock_t *, const struct timespec *);
+int (*real_pthread_rwlock_tryrdlock)(pthread_rwlock_t *);
+int (*real_pthread_rwlock_trywrlock)(pthread_rwlock_t *);
+int (*real_pthread_rwlock_unlock)(pthread_rwlock_t *);
+int (*real_pthread_rwlock_wrlock)(pthread_rwlock_t *);
+int (*real_pthread_rwlockattr_destroy)(pthread_rwlockattr_t *);
+int (*real_pthread_rwlockattr_getpshared)(const pthread_rwlockattr_t *restrict,
+                                  int *restrict);
+int (*real_pthread_rwlockattr_init)(pthread_rwlockattr_t *);
+int (*real_pthread_rwlockattr_setpshared)(pthread_rwlockattr_t *, int);
+
+int (*real_pthread_barrierattr_init)(pthread_barrierattr_t *attr);
+int (*real_pthread_barrierattr_destroy)(pthread_barrierattr_t *attr);
+int (*real_pthread_barrierattr_getpshared)(const pthread_barrierattr_t *attr,
+                                   int *pshared);
+int (*real_pthread_barrierattr_setpshared)(pthread_barrierattr_t *attr, int pshared);
+int (*real_pthread_barrier_destroy)(pthread_barrier_t *barrier);
+int (*real_pthread_barrier_init)(pthread_barrier_t *restrict barrier,
+                         const pthread_barrierattr_t *attr, unsigned count);
+int (*real_pthread_barrier_wait)(pthread_barrier_t *barrier);
+
+int (*real_pthread_spin_init)(pthread_spinlock_t *lock, int pshared);
+int (*real_pthread_spin_destroy)(pthread_spinlock_t *lock);
+int (*real_pthread_spin_lock)(pthread_spinlock_t *lock);
+int (*real_pthread_spin_trylock)(pthread_spinlock_t *lock);
+int (*real_pthread_spin_unlock)(pthread_spinlock_t *lock);
+
+int (*real_pthread_getcpuclockid)(pthread_t thread, clockid_t *clockid);
+int (*real_pthread_setschedprio)(pthread_t thread, int prio);
+int (*real_pthread_kill)(pthread_t thread, int sig);
+
+int (*real_pthread_once)(pthread_once_t *once_control, void (*init_routine)(void));
+
+int (*real_pthread_getconcurrency)(void);
+int (*real_pthread_setconcurrency)(int new_level);
+
+void load_real_pthread_functions() {
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_getschedparam);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_setschedparam);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_destroy);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_getdetachstate);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_getguardsize);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_getinheritsched);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_getschedparam);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_getschedpolicy);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_getscope);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_getstackaddr);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_getstacksize);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_getstack);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_init);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_setdetachstate);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_setguardsize);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_setinheritsched);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_setschedparam);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_setschedpolicy);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_setscope);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_setstackaddr);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_setstacksize);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_attr_setstack);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_getattr_np);
+
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_setcancelstate);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_setcanceltype);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_cancel);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_create);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_join);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_exit);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_yield);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_self);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_detach);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_equal);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_testcancel);
+
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutex_destroy);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutex_init);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutex_lock);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutex_trylock);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutex_unlock);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutex_timedlock);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutex_getprioceiling);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutex_setprioceiling);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutexattr_getprioceiling);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutexattr_getprotocol);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutexattr_getpshared);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutexattr_gettype);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutexattr_getrobust);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutexattr_init);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutexattr_setprioceiling);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutexattr_setprotocol);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutexattr_setpshared);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutexattr_setrobust);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutexattr_settype);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_mutexattr_destroy);
+
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_cond_broadcast);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_cond_destroy);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_cond_init);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_cond_signal);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_cond_timedwait);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_cond_wait);
+
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_condattr_destroy);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_condattr_getpshared);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_condattr_getclock);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_condattr_init);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_condattr_setpshared);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_condattr_setclock);
+
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_key_create);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_key_delete);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_setspecific);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_getspecific);
+
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_rwlock_destroy);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_rwlock_init);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_rwlock_rdlock);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_rwlock_timedrdlock);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_rwlock_timedwrlock);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_rwlock_tryrdlock);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_rwlock_trywrlock);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_rwlock_unlock);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_rwlock_wrlock);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_rwlockattr_destroy);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_rwlockattr_getpshared);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_rwlockattr_init);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_rwlockattr_setpshared);
+
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_barrierattr_init);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_barrierattr_destroy);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_barrierattr_getpshared);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_barrierattr_setpshared);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_barrier_destroy);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_barrier_init);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_barrier_wait);
+
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_spin_init);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_spin_destroy);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_spin_lock);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_spin_trylock);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_spin_unlock);
+
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_getcpuclockid);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_setschedprio);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_kill);
+
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_once);
+
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_getconcurrency);
+  LOAD_REAL_PTHREAD_FUNCTION(pthread_setconcurrency);
+
 }
 
 static inline uint32_t rotl(const uint32_t x, int k) {
@@ -581,10 +844,12 @@ static bool yield(enum thread_state blocked_state) {
   return yielding;
 }
 
-int unthread_yield() {
+int pthread_yield() {
+  CHECK_PASSTHROUGH(pthread_yield);
+
   if (current->canceled && current->cancel_state == PTHREAD_CANCEL_ENABLE &&
       current->cancel_type == PTHREAD_CANCEL_ASYNCHRONOUS && rand_u32(2)) {
-    unthread_exit(PTHREAD_CANCELED);
+    pthread_exit(PTHREAD_CANCELED);
   }
 
   push(&threads_ready, current);
@@ -592,7 +857,11 @@ int unthread_yield() {
   return 0;
 }
 
-pthread_t unthread_self() { return current; }
+pthread_t pthread_self() { 
+  CHECK_PASSTHROUGH(pthread_self);
+
+  return current; 
+}
 
 static void terminate(pthread_t thread) {
   assert(thread->state != TERMINATED);
@@ -608,10 +877,16 @@ static void terminate(pthread_t thread) {
   }
 }
 
-int unthread_equal(pthread_t a, pthread_t b) { return a == b ? 1 : 0; }
+int pthread_equal(pthread_t a, pthread_t b) { 
+  CHECK_PASSTHROUGH(pthread_equal, a, b);
 
-int unthread_join(pthread_t join, void **retval) {
-  unthread_yield();
+  return a == b ? 1 : 0; 
+}
+
+int pthread_join(pthread_t join, void **retval) {
+  CHECK_PASSTHROUGH(pthread_join, join, retval);
+
+  pthread_yield();
 
   LOG("%u join with %u", current->id, join->id);
 
@@ -638,7 +913,7 @@ int unthread_join(pthread_t join, void **retval) {
       // - we must have been canceled.
       assert(current->canceled);
       join->joined_by = NULL;
-      unthread_exit(PTHREAD_CANCELED);
+      pthread_exit(PTHREAD_CANCELED);
     } else if (current->canceled) {
       pop_specific(&threads_ready, current);
     }
@@ -654,7 +929,7 @@ int unthread_join(pthread_t join, void **retval) {
 
   terminate(join);
 
-  unthread_yield();
+  pthread_yield();
 
   return 0;
 }
@@ -675,12 +950,15 @@ static void start_thread_fn(void *p) {
   }
 
   current = ctx.thread;
-  unthread_exit(ctx.start_func(ctx.start_arg));
+  pthread_exit(ctx.start_func(ctx.start_arg));
 }
 
-int unthread_create(pthread_t *thread, const pthread_attr_t *attr,
+int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
                    void *(*func)(void *), void *arg) {
-  unthread_yield();
+  
+  CHECK_PASSTHROUGH(pthread_create, thread, attr, func, arg);
+
+  pthread_yield();
 
   if (attr == NULL) {
     attr = &default_attr;
@@ -742,11 +1020,13 @@ int unthread_create(pthread_t *thread, const pthread_attr_t *attr,
 
   push(&threads_ready, child);
 
-  unthread_yield();
+  pthread_yield();
   return 0;
 }
 
-int unthread_setcancelstate(int state, int *oldstate) {
+int pthread_setcancelstate(int state, int *oldstate) {
+  CHECK_PASSTHROUGH(pthread_setcancelstate, state, oldstate);
+
   CHECK(EXIT_ILLEGAL,
         state == PTHREAD_CANCEL_ENABLE || state == PTHREAD_CANCEL_DISABLE,
         "cancel state must be PTHREAD_CANCEL_ENABLE or PTHREAD_CANCEL_DISABLE");
@@ -756,7 +1036,9 @@ int unthread_setcancelstate(int state, int *oldstate) {
   return 0;
 }
 
-int unthread_setcanceltype(int type, int *oldtype) {
+int pthread_setcanceltype(int type, int *oldtype) {
+  CHECK_PASSTHROUGH(pthread_setcanceltype, type, oldtype);
+
   CHECK(EXIT_ILLEGAL,
         type == PTHREAD_CANCEL_DEFERRED || type == PTHREAD_CANCEL_ASYNCHRONOUS,
         "cancel type must be PTHREAD_CANCEL_DEFERRED or "
@@ -767,7 +1049,9 @@ int unthread_setcanceltype(int type, int *oldtype) {
   return 0;
 }
 
-int unthread_cancel(pthread_t thread) {
+int pthread_cancel(pthread_t thread) {
+  CHECK_PASSTHROUGH(pthread_cancel, thread);
+
   if (!thread->canceled && thread->cancel_state == PTHREAD_CANCEL_ENABLE &&
       (thread->state == BLOCK_COND_WAIT || thread->state == BLOCK_JOIN)) {
     // The thread is blocked inside a function that is a cancellation point.
@@ -781,7 +1065,9 @@ int unthread_cancel(pthread_t thread) {
   return 0;
 }
 
-int unthread_detach(pthread_t thread) {
+int pthread_detach(pthread_t thread) {
+  CHECK_PASSTHROUGH(pthread_detach, thread);
+
   CHECK(EXIT_ILLEGAL, thread->state != TERMINATED,
         "Can only detach from non-terminated thread");
 
@@ -797,10 +1083,12 @@ int unthread_detach(pthread_t thread) {
   return 0;
 }
 
-void unthread_exit(void *retval) {
+void pthread_exit(void *retval) {
+  CHECK_PASSTHROUGH(pthread_exit, retval);
+
   LOG("%u exiting", current->id);
 
-  unthread_yield();
+  pthread_yield();
 
   // Call cleanup functions
   for (pthread_cleanup_t *cleanup = current->cleanup; cleanup != NULL;
@@ -857,7 +1145,9 @@ void unthread_exit(void *retval) {
   ASSERT_UNREACHABLE();
 }
 
-int unthread_mutex_destroy(pthread_mutex_t *mutex) {
+int pthread_mutex_destroy(pthread_mutex_t *mutex) {
+  CHECK_PASSTHROUGH(pthread_mutex_destroy, mutex);
+
   CHECK(EXIT_ILLEGAL, mutex->initialized, "Mutex is not initialized");
 
   CHECK(EXIT_ILLEGAL, mutex->locked_by == NULL,
@@ -868,9 +1158,9 @@ int unthread_mutex_destroy(pthread_mutex_t *mutex) {
     free(mutex->waiting.threads.big);
   }
 
-  unthread_mutex_init(mutex, NULL);
+  pthread_mutex_init(mutex, NULL);
 
-  unthread_yield();
+  pthread_yield();
   return 0;
 }
 
@@ -883,8 +1173,11 @@ static const pthread_mutexattr_t pthread_mutexattr_default = {
     .robust = PTHREAD_MUTEX_STALLED,
 };
 
-int unthread_mutex_init(pthread_mutex_t *mutex,
+int pthread_mutex_init(pthread_mutex_t *mutex,
                        const pthread_mutexattr_t *attr) {
+
+  CHECK_PASSTHROUGH(pthread_mutex_init, mutex, attr);
+
   if (attr == NULL) {
     attr = &pthread_mutexattr_default;
   }
@@ -914,8 +1207,10 @@ int unthread_mutex_init(pthread_mutex_t *mutex,
   return 0;
 }
 
-int unthread_mutex_lock(pthread_mutex_t *mutex) {
-  unthread_yield();
+int pthread_mutex_lock(pthread_mutex_t *mutex) {
+  CHECK_PASSTHROUGH(pthread_mutex_lock, mutex);
+
+  pthread_yield();
 
   CHECK(EXIT_ILLEGAL, mutex->initialized, "Mutex not initialized");
 
@@ -948,12 +1243,14 @@ int unthread_mutex_lock(pthread_mutex_t *mutex) {
   }
 
   mutex->rec_count++;
-  unthread_yield();
+  pthread_yield();
   return 0;
 }
 
-int unthread_mutex_trylock(pthread_mutex_t *mutex) {
-  unthread_yield();
+int pthread_mutex_trylock(pthread_mutex_t *mutex) {
+  CHECK_PASSTHROUGH(pthread_mutex_trylock, mutex);
+
+  pthread_yield();
 
   if (mutex->locked_by == NULL) {
     LOG("%u locked mutex at %p", current->id, mutex);
@@ -970,12 +1267,14 @@ int unthread_mutex_trylock(pthread_mutex_t *mutex) {
   }
 
   mutex->rec_count++;
-  unthread_yield();
+  pthread_yield();
   return 0;
 }
 
-int unthread_mutex_timedlock(pthread_mutex_t *mutex,
+int pthread_mutex_timedlock(pthread_mutex_t *mutex,
                             const struct timespec *abs_timeout) {
+  CHECK_PASSTHROUGH(pthread_mutex_timedlock, mutex, abs_timeout);
+
   CHECK(EXIT_ILLEGAL, mutex->initialized, "Mutex not initialized");
 
   if (mutex->locked_by == NULL) {
@@ -1016,24 +1315,28 @@ int unthread_mutex_timedlock(pthread_mutex_t *mutex,
   return 0;
 }
 
-int unthread_mutex_getprioceiling(const pthread_mutex_t *mutex,
+int pthread_mutex_getprioceiling(const pthread_mutex_t *mutex,
                                  int *prioceiling) {
+  CHECK_PASSTHROUGH(pthread_mutex_getprioceiling, mutex, prioceiling);
   CHECK(EXIT_ILLEGAL, mutex->initialized, "Mutex not initialized");
   *prioceiling = mutex->prioceiling;
   return 0;
 }
 
-int unthread_mutex_setprioceiling(pthread_mutex_t *mutex, int prioceiling,
+int pthread_mutex_setprioceiling(pthread_mutex_t *mutex, int prioceiling,
                                  int *old_ceiling) {
+  CHECK_PASSTHROUGH(pthread_mutex_setprioceiling, mutex, prioceiling, old_ceiling);
   CHECK(EXIT_ILLEGAL, mutex->initialized, "Mutex not initialized");
-  CHECK(EXIT_MISC, unthread_mutex_lock(mutex), "Failed to lock mutex");
+  CHECK(EXIT_MISC, pthread_mutex_lock(mutex), "Failed to lock mutex");
   *old_ceiling = mutex->prioceiling;
   mutex->prioceiling = prioceiling;
-  CHECK(EXIT_MISC, unthread_mutex_unlock(mutex), "Failed to unlock mutex");
+  CHECK(EXIT_MISC, pthread_mutex_unlock(mutex), "Failed to unlock mutex");
   return 0;
 }
 
 static int mutex_unlock_noyield(pthread_mutex_t *mutex) {
+  CHECK_PASSTHROUGH(pthread_mutex_unlock, mutex);
+
   CHECK(EXIT_ILLEGAL, mutex->initialized, "Mutex not initialized");
 
   if (current != mutex->locked_by && (mutex->type == PTHREAD_MUTEX_ERRORCHECK ||
@@ -1075,7 +1378,9 @@ static int mutex_unlock_noyield(pthread_mutex_t *mutex) {
   return 0;
 }
 
-int unthread_mutex_unlock(pthread_mutex_t *mutex) {
+int pthread_mutex_unlock(pthread_mutex_t *mutex) {
+  CHECK_PASSTHROUGH(pthread_mutex_unlock, mutex);
+
   CHECK(EXIT_ILLEGAL, mutex->initialized, "Mutex not initialized");
 
   int ret = mutex_unlock_noyield(mutex);
@@ -1084,22 +1389,26 @@ int unthread_mutex_unlock(pthread_mutex_t *mutex) {
     return ret;
   }
 
-  unthread_yield();
+  pthread_yield();
   return 0;
 }
 
-int unthread_cond_broadcast(pthread_cond_t *cond) {
+int pthread_cond_broadcast(pthread_cond_t *cond) {
+  CHECK_PASSTHROUGH(pthread_cond_broadcast, cond);
+
   CHECK(EXIT_ILLEGAL, cond->initialized, "Cond not initialized");
 
   for (size_t i = 0; i < cond->waiting.len; i++) {
     append(&threads_ready, &cond->waiting);
   }
 
-  unthread_yield();
+  pthread_yield();
   return 0;
 }
 
-int unthread_cond_destroy(pthread_cond_t *cond) {
+int pthread_cond_destroy(pthread_cond_t *cond) {
+  CHECK_PASSTHROUGH(pthread_cond_destroy, cond);
+
   CHECK(EXIT_ILLEGAL, cond->initialized, "Cond not initialized");
   cond->initialized = false;
   return 0;
@@ -1111,7 +1420,9 @@ static const pthread_condattr_t pthread_condattr_default = {
     .clock_id = CLOCK_MONOTONIC,
 };
 
-int unthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr) {
+int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr) {
+  CHECK_PASSTHROUGH(pthread_cond_init, cond, attr);
+  
   if (attr == NULL) {
     attr = &pthread_condattr_default;
   }
@@ -1127,8 +1438,10 @@ int unthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr) {
   return 0;
 }
 
-int unthread_cond_signal(pthread_cond_t *cond) {
-  unthread_yield();
+int pthread_cond_signal(pthread_cond_t *cond) {
+  CHECK_PASSTHROUGH(pthread_cond_signal, cond);
+
+  pthread_yield();
 
   CHECK(EXIT_ILLEGAL, cond->initialized, "Cond not initialized");
 
@@ -1173,12 +1486,14 @@ int unthread_cond_signal(pthread_cond_t *cond) {
     LOG("%u signalling cond at %p, none waiting", current->id, cond);
   }
 
-  unthread_yield();
+  pthread_yield();
   return 0;
 }
 
-int unthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
+int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
                            const struct timespec *timeout) {
+  CHECK_PASSTHROUGH(pthread_cond_timedwait, cond, mutex, timeout);
+  
   CHECK(EXIT_ILLEGAL, cond->initialized, "Cond not initialized");
   CHECK(EXIT_ILLEGAL, mutex->initialized, "Mutex not initialized");
   CHECK(EXIT_ILLEGAL, mutex->locked_by == current,
@@ -1205,18 +1520,20 @@ int unthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
 
     if (current->canceled && current->cancel_state == PTHREAD_CANCEL_ENABLE &&
         rand_u32(2)) {
-      unthread_exit(PTHREAD_CANCELED);
+      pthread_exit(PTHREAD_CANCELED);
     }
 
     LOG("%u timed out waiting on cond %p, relocking mutex %p", current->id,
         cond, mutex);
 
-    unthread_mutex_lock(mutex);
+    pthread_mutex_lock(mutex);
     return ETIMEDOUT;
   }
 }
 
-int unthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex) {
+int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex) {
+  CHECK_PASSTHROUGH(pthread_cond_wait, cond, mutex);
+  
   LOG("%u waiting on cond at %p, unlocking mutex at %p", current->id, cond,
       mutex);
   mutex_unlock_noyield(mutex);
@@ -1232,60 +1549,82 @@ int unthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex) {
   if (mutex->locked_by != current && current->canceled &&
       current->cancel_state == PTHREAD_CANCEL_ENABLE && rand_u32(2)) {
     pop_specific(&cond->waiting, current);
-    unthread_exit(PTHREAD_CANCELED);
+    pthread_exit(PTHREAD_CANCELED);
   }
 
   return 0;
 }
 
-void unthread_testcancel(void) {
-  unthread_yield();
+void pthread_testcancel(void) {
+  CHECK_PASSTHROUGH(pthread_testcancel);
+
+  pthread_yield();
 
   if (current->canceled && rand_u32(2)) {
-    unthread_exit(PTHREAD_CANCELED);
-    unthread_yield();
+    pthread_exit(PTHREAD_CANCELED);
+    pthread_yield();
   }
 }
 
-int unthread_condattr_destroy(pthread_condattr_t *attr) {
+int pthread_condattr_destroy(pthread_condattr_t *attr) {
+  CHECK_PASSTHROUGH(pthread_condattr_destroy, attr);
+
   attr->initialized = false;
   return 0;
 }
 
-int unthread_condattr_getpshared(const pthread_condattr_t *attr, int *pshared) {
+int pthread_condattr_getpshared(const pthread_condattr_t *attr, int *pshared) {
+  CHECK_PASSTHROUGH(pthread_condattr_getpshared, attr, pshared);
+  
   *pshared = attr->pshared;
   return 0;
 }
 
-int unthread_condattr_init(pthread_condattr_t *attr) {
+int pthread_condattr_init(pthread_condattr_t *attr) {
+  CHECK_PASSTHROUGH(pthread_condattr_init, attr);
+
   *attr = pthread_condattr_default;
   return 0;
 }
 
-int unthread_condattr_setpshared(pthread_condattr_t *attr, int pshared) {
+int pthread_condattr_setpshared(pthread_condattr_t *attr, int pshared) {
+  CHECK_PASSTHROUGH(pthread_condattr_setpshared, attr, pshared);
+  
   attr->pshared = pshared;
   return 0;
 }
 
-int unthread_condattr_getclock(pthread_condattr_t *attr, clockid_t *clock_id) {
+int pthread_condattr_getclock(pthread_condattr_t *attr, clockid_t *clock_id) {
+  CHECK_PASSTHROUGH(pthread_condattr_getclock, attr, clock_id);
+  
   *clock_id = attr->clock_id;
   return 0;
 }
 
-int unthread_condattr_setclock(pthread_condattr_t *attr, clockid_t clock_id) {
+int pthread_condattr_setclock(pthread_condattr_t *attr, clockid_t clock_id) {
+  CHECK_PASSTHROUGH(pthread_condattr_setclock, attr, clock_id);
+  
   // TODO: Fail if clock_id is a CPU clock - but how to detect that?
   attr->clock_id = clock_id;
   return 0;
 }
 
-int unthread_attr_init(pthread_attr_t *attr) {
+int pthread_attr_init(pthread_attr_t *attr) {
+  CHECK_PASSTHROUGH(pthread_attr_init, attr);
+
   *attr = default_attr;
   return 0;
 }
 
-int unthread_attr_destroy(pthread_attr_t *attr) { return 0; }
+int pthread_attr_destroy(pthread_attr_t *attr) { 
+  CHECK_PASSTHROUGH(pthread_attr_destroy, attr);
 
-int unthread_attr_setdetachstate(pthread_attr_t *attr, int detach_state) {
+  return 0;
+}
+
+int pthread_attr_setdetachstate(pthread_attr_t *attr, int detach_state) {
+  CHECK_PASSTHROUGH(pthread_attr_setdetachstate, attr, detach_state);
+  
   CHECK_RET(EINVAL,
             detach_state == PTHREAD_CREATE_DETACHED ||
                 detach_state == PTHREAD_CREATE_JOINABLE,
@@ -1295,28 +1634,38 @@ int unthread_attr_setdetachstate(pthread_attr_t *attr, int detach_state) {
   return 0;
 }
 
-int unthread_attr_getdetachstate(const pthread_attr_t *attr, int *detach_state) {
+int pthread_attr_getdetachstate(const pthread_attr_t *attr, int *detach_state) {
+  CHECK_PASSTHROUGH(pthread_attr_getdetachstate, attr, detach_state);
+  
   *detach_state = attr->data.detach_state;
   return 0;
 }
 
-int unthread_attr_getguardsize(const pthread_attr_t *attr, size_t *guard_size) {
+int pthread_attr_getguardsize(const pthread_attr_t *attr, size_t *guard_size) {
+  CHECK_PASSTHROUGH(pthread_attr_getguardsize, attr, guard_size);
+  
   *guard_size = attr->data.guard_size;
   return 0;
 }
 
-int unthread_attr_setguardsize(pthread_attr_t *attr, size_t guard_size) {
+int pthread_attr_setguardsize(pthread_attr_t *attr, size_t guard_size) {
+  CHECK_PASSTHROUGH(pthread_attr_setguardsize, attr, guard_size);
+  
   attr->data.guard_size = guard_size;
   return 0;
 }
 
-int unthread_attr_getinheritsched(const pthread_attr_t *attr,
+int pthread_attr_getinheritsched(const pthread_attr_t *attr,
                                  int *inherit_sched) {
+  CHECK_PASSTHROUGH(pthread_attr_getinheritsched, attr, inherit_sched);
+
   *inherit_sched = attr->data.inherit_sched;
   return 0;
 }
 
-int unthread_attr_setinheritsched(pthread_attr_t *attr, int inherit_sched) {
+int pthread_attr_setinheritsched(pthread_attr_t *attr, int inherit_sched) {
+  CHECK_PASSTHROUGH(pthread_attr_setinheritsched, attr, inherit_sched);
+  
   CHECK(EXIT_ILLEGAL,
         inherit_sched == PTHREAD_INHERIT_SCHED ||
             inherit_sched == PTHREAD_EXPLICIT_SCHED,
@@ -1326,19 +1675,25 @@ int unthread_attr_setinheritsched(pthread_attr_t *attr, int inherit_sched) {
   return 0;
 }
 
-int unthread_attr_getschedparam(const pthread_attr_t *attr,
+int pthread_attr_getschedparam(const pthread_attr_t *attr,
                                struct sched_param *sched_param) {
+  CHECK_PASSTHROUGH(pthread_attr_getschedparam, attr, sched_param);
+  
   *sched_param = attr->data.sched_param;
   return 0;
 }
 
-int unthread_attr_getschedpolicy(const pthread_attr_t *attr, int *sched_policy) {
+int pthread_attr_getschedpolicy(const pthread_attr_t *attr, int *sched_policy) {
+  CHECK_PASSTHROUGH(pthread_attr_getschedpolicy, attr, sched_policy);
+  
   *sched_policy = attr->data.sched_policy;
   return 0;
 }
 
-int unthread_attr_setschedparam(pthread_attr_t *attr,
+int pthread_attr_setschedparam(pthread_attr_t *attr,
                                const struct sched_param *sched_param) {
+  CHECK_PASSTHROUGH(pthread_attr_setschedparam, attr, sched_param);
+  
   int min = sched_get_priority_min(attr->data.sched_policy);
   int max = sched_get_priority_max(attr->data.sched_policy);
   int priority = sched_param->sched_priority;
@@ -1350,7 +1705,9 @@ int unthread_attr_setschedparam(pthread_attr_t *attr,
   return 0;
 }
 
-int unthread_attr_setschedpolicy(pthread_attr_t *attr, int sched_policy) {
+int pthread_attr_setschedpolicy(pthread_attr_t *attr, int sched_policy) {
+  CHECK_PASSTHROUGH(pthread_attr_setschedpolicy, attr, sched_policy);
+  
   int prio = sched_get_priority_min(sched_policy);
   CHECK(EXIT_ILLEGAL, prio != -1, "Invalid scheduling policy: %d",
         sched_policy);
@@ -1358,12 +1715,16 @@ int unthread_attr_setschedpolicy(pthread_attr_t *attr, int sched_policy) {
   return 0;
 }
 
-int unthread_attr_getscope(const pthread_attr_t *attr, int *scope) {
+int pthread_attr_getscope(const pthread_attr_t *attr, int *scope) {
+  CHECK_PASSTHROUGH(pthread_attr_getscope, attr, scope);
+  
   *scope = attr->data.scope;
   return 0;
 }
 
-int unthread_attr_setscope(pthread_attr_t *attr, int scope) {
+int pthread_attr_setscope(pthread_attr_t *attr, int scope) {
+  CHECK_PASSTHROUGH(pthread_attr_setscope, attr, scope);
+  
   CHECK(EXIT_ILLEGAL,
         scope == PTHREAD_SCOPE_SYSTEM || scope == PTHREAD_SCOPE_PROCESS,
         "Invalid scope: %d", scope);
@@ -1372,22 +1733,30 @@ int unthread_attr_setscope(pthread_attr_t *attr, int scope) {
   return 0;
 }
 
-int unthread_attr_getstackaddr(const pthread_attr_t *attr, void **stack_addr) {
+int pthread_attr_getstackaddr(const pthread_attr_t *attr, void **stack_addr) {
+  CHECK_PASSTHROUGH(pthread_attr_getstackaddr, attr, stack_addr);
+  
   *stack_addr = attr->data.stack_addr;
   return 0;
 }
 
-int unthread_attr_setstackaddr(pthread_attr_t *attr, void *stack_addr) {
+int pthread_attr_setstackaddr(pthread_attr_t *attr, void *stack_addr) {
+  CHECK_PASSTHROUGH(pthread_attr_setstackaddr, attr, stack_addr);
+  
   attr->data.stack_addr = stack_addr;
   return 0;
 }
 
-int unthread_attr_getstacksize(const pthread_attr_t *attr, size_t *stack_size) {
+int pthread_attr_getstacksize(const pthread_attr_t *attr, size_t *stack_size) {
+  CHECK_PASSTHROUGH(pthread_attr_getstacksize, attr, stack_size);
+  
   *stack_size = attr->data.stack_size;
   return 0;
 }
 
-int unthread_attr_setstacksize(pthread_attr_t *attr, size_t stack_size) {
+int pthread_attr_setstacksize(pthread_attr_t *attr, size_t stack_size) {
+  CHECK_PASSTHROUGH(pthread_attr_setstacksize, attr, stack_size);
+  
   CHECK(EXIT_ILLEGAL, attr->data.initialized, "Attr not initialized");
   CHECK_RET(EINVAL, stack_size >= PTHREAD_STACK_MIN,
             "Stack size of %zu less than min stack size of %zu", stack_size,
@@ -1397,16 +1766,20 @@ int unthread_attr_setstacksize(pthread_attr_t *attr, size_t stack_size) {
   return 0;
 }
 
-int unthread_attr_getstack(pthread_attr_t *attr, void **stackaddr,
+int pthread_attr_getstack(pthread_attr_t *attr, void **stackaddr,
                           size_t *stacksize) {
+  CHECK_PASSTHROUGH(pthread_attr_getstack, attr, stackaddr, stacksize);
+  
   CHECK(EXIT_ILLEGAL, attr->data.initialized, "Attr not initialized");
   *stackaddr = attr->data.stack_addr;
   *stacksize = attr->data.stack_size;
   return 0;
 }
 
-int unthread_attr_setstack(pthread_attr_t *attr, void *stack_addr,
+int pthread_attr_setstack(pthread_attr_t *attr, void *stack_addr,
                           size_t stack_size) {
+  CHECK_PASSTHROUGH(pthread_attr_setstack, attr, stack_addr, stack_size);
+  
   CHECK(EXIT_ILLEGAL, attr->data.initialized, "Attr not initialized");
   CHECK_RET(EINVAL, stack_size >= PTHREAD_STACK_MIN,
             "Stack size of %zu less than min stack size of %zu", stack_size,
@@ -1417,7 +1790,9 @@ int unthread_attr_setstack(pthread_attr_t *attr, void *stack_addr,
   return 0;
 }
 
-int unthread_getattr_np(pthread_t thread, pthread_attr_t *attr) {
+int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr) {
+  CHECK_PASSTHROUGH(pthread_getattr_np, thread, attr);
+  
   *attr = thread->attr;
 
   attr->data.detach_state =
@@ -1428,58 +1803,76 @@ int unthread_getattr_np(pthread_t thread, pthread_attr_t *attr) {
   return 0;
 }
 
-int unthread_mutexattr_getprioceiling(const pthread_mutexattr_t *attr,
+int pthread_mutexattr_getprioceiling(const pthread_mutexattr_t *attr,
                                      int *prioceiling) {
+  CHECK_PASSTHROUGH(pthread_mutexattr_getprioceiling, attr, prioceiling);
+  
   CHECK(EXIT_ILLEGAL, attr->initialized, "Mutex attr not initialized");
   *prioceiling = attr->prioceiling;
   return 0;
 }
 
-int unthread_mutexattr_getprotocol(const pthread_mutexattr_t *attr,
+int pthread_mutexattr_getprotocol(const pthread_mutexattr_t *attr,
                                   int *protocol) {
+  CHECK_PASSTHROUGH(pthread_mutexattr_getprotocol, attr, protocol);
+  
   CHECK(EXIT_ILLEGAL, attr->initialized, "Mutex attr not initialized");
   *protocol = attr->protocol;
   return 0;
 }
 
-int unthread_mutexattr_getpshared(const pthread_mutexattr_t *attr,
+int pthread_mutexattr_getpshared(const pthread_mutexattr_t *attr,
                                  int *pshared) {
+  CHECK_PASSTHROUGH(pthread_mutexattr_getpshared, attr, pshared);
+  
   CHECK(EXIT_ILLEGAL, attr->initialized, "Mutex attr not initialized");
   *pshared = attr->pshared;
   return 0;
 }
 
-int unthread_mutexattr_gettype(const pthread_mutexattr_t *attr, int *type) {
+int pthread_mutexattr_gettype(const pthread_mutexattr_t *attr, int *type) {
+  CHECK_PASSTHROUGH(pthread_mutexattr_gettype, attr, type);
+  
   CHECK(EXIT_ILLEGAL, attr->initialized, "Mutex attr not initialized");
   *type = attr->type;
   return 0;
 }
 
-int unthread_mutexattr_getrobust(const pthread_mutexattr_t *attr, int *robust) {
+int pthread_mutexattr_getrobust(const pthread_mutexattr_t *attr, int *robust) {
+  CHECK_PASSTHROUGH(pthread_mutexattr_getrobust, attr, robust);
+  
   CHECK(EXIT_ILLEGAL, attr->initialized, "Mutex attr not initialized");
   *robust = attr->robust;
   return 0;
 }
 
-int unthread_mutexattr_init(pthread_mutexattr_t *attr) {
+int pthread_mutexattr_init(pthread_mutexattr_t *attr) {
+  CHECK_PASSTHROUGH(pthread_mutexattr_init, attr);
+  
   *attr = pthread_mutexattr_default;
   return 0;
 }
 
-int unthread_mutexattr_destroy(pthread_mutexattr_t *attr) {
+int pthread_mutexattr_destroy(pthread_mutexattr_t *attr) {
+  CHECK_PASSTHROUGH(pthread_mutexattr_destroy, attr);
+  
   CHECK(EXIT_ILLEGAL, attr->initialized, "Mutex attr not initialized");
   attr->initialized = false;
   return 0;
 }
 
-int unthread_mutexattr_setprioceiling(pthread_mutexattr_t *attr,
+int pthread_mutexattr_setprioceiling(pthread_mutexattr_t *attr,
                                      int prioceiling) {
+  CHECK_PASSTHROUGH(pthread_mutexattr_setprioceiling, attr, prioceiling);
+  
   CHECK(EXIT_ILLEGAL, attr->initialized, "Mutex attr not initialized");
   attr->prioceiling = prioceiling;
   return 0;
 }
 
-int unthread_mutexattr_setprotocol(pthread_mutexattr_t *attr, int protocol) {
+int pthread_mutexattr_setprotocol(pthread_mutexattr_t *attr, int protocol) {
+  CHECK_PASSTHROUGH(pthread_mutexattr_setprotocol, attr, protocol);
+  
   CHECK(EXIT_ILLEGAL, attr->initialized, "Mutex attr not initialized");
   CHECK(EXIT_ILLEGAL,
         protocol == PTHREAD_PRIO_NONE || protocol == PTHREAD_PRIO_INHERIT ||
@@ -1490,7 +1883,9 @@ int unthread_mutexattr_setprotocol(pthread_mutexattr_t *attr, int protocol) {
   return 0;
 }
 
-int unthread_mutexattr_setpshared(pthread_mutexattr_t *attr, int pshared) {
+int pthread_mutexattr_setpshared(pthread_mutexattr_t *attr, int pshared) {
+  CHECK_PASSTHROUGH(pthread_mutexattr_setpshared, attr, pshared);
+  
   CHECK(EXIT_ILLEGAL, attr->initialized, "Mutex attr not initialized");
   CHECK(EXIT_ILLEGAL,
         pshared == PTHREAD_PROCESS_PRIVATE || pshared == PTHREAD_PROCESS_SHARED,
@@ -1500,7 +1895,9 @@ int unthread_mutexattr_setpshared(pthread_mutexattr_t *attr, int pshared) {
   return 0;
 }
 
-int unthread_mutexattr_settype(pthread_mutexattr_t *attr, int type) {
+int pthread_mutexattr_settype(pthread_mutexattr_t *attr, int type) {
+  CHECK_PASSTHROUGH(pthread_mutexattr_settype, attr, type);
+  
   CHECK(EXIT_ILLEGAL, attr->initialized, "Mutex attr not initialized");
   CHECK_RET(EINVAL,
             type == PTHREAD_MUTEX_NORMAL || type == PTHREAD_MUTEX_ERRORCHECK ||
@@ -1512,7 +1909,9 @@ int unthread_mutexattr_settype(pthread_mutexattr_t *attr, int type) {
   return 0;
 }
 
-int unthread_mutexattr_setrobust(pthread_mutexattr_t *attr, int robust) {
+int pthread_mutexattr_setrobust(pthread_mutexattr_t *attr, int robust) {
+  CHECK_PASSTHROUGH(pthread_mutexattr_setrobust, attr, robust);
+  
   CHECK(EXIT_ILLEGAL, attr->initialized, "Mutex attr not initialized");
   CHECK_RET(EINVAL,
             robust == PTHREAD_MUTEX_STALLED || robust == PTHREAD_MUTEX_ROBUST,
@@ -1539,7 +1938,9 @@ void pthread_cleanup_pop_inner(int execute) {
   current->cleanup = current->cleanup->prev;
 }
 
-int unthread_key_create(pthread_key_t *key, void (*destructor)(void *)) {
+int pthread_key_create(pthread_key_t *key, void (*destructor)(void *)) {
+  CHECK_PASSTHROUGH(pthread_key_create, key, destructor);
+  
   size_t id;
 
   static size_t next_key_id = 1;
@@ -1557,7 +1958,10 @@ int unthread_key_create(pthread_key_t *key, void (*destructor)(void *)) {
   return 0;
 }
 
-int unthread_key_delete(pthread_key_t key) {
+int pthread_key_delete(pthread_key_t key) {
+  // TODO: should this call destructor?
+  CHECK_PASSTHROUGH(pthread_key_delete, key);
+
   CHECK(EXIT_ILLEGAL, key.initialized, "Key not initialized");
   key.initialized = false;
   return 0;
@@ -1659,7 +2063,9 @@ static void tls_grow(struct tls *tls) {
   current->tls = new_tls;
 }
 
-int unthread_setspecific(pthread_key_t key, const void *value) {
+int pthread_setspecific(pthread_key_t key, const void *value) {
+  CHECK_PASSTHROUGH(pthread_setspecific, key, value);
+
   CHECK(EXIT_ILLEGAL, key.id != 0,
         "Tried calling setspecific on uninitialized key");
 
@@ -1680,7 +2086,9 @@ int unthread_setspecific(pthread_key_t key, const void *value) {
   return 0;
 }
 
-void *unthread_getspecific(pthread_key_t key) {
+void *pthread_getspecific(pthread_key_t key) {
+  CHECK_PASSTHROUGH(pthread_getspecific, key);
+
   CHECK(EXIT_ILLEGAL, key.id != 0,
         "Tried calling getspecific on uninitialized key");
 
@@ -1713,24 +2121,32 @@ static const pthread_rwlockattr_t pthread_rwlockattr_default = {
     .initialized = true,
 };
 
-int unthread_rwlockattr_destroy(pthread_rwlockattr_t *attr) {
+int pthread_rwlockattr_destroy(pthread_rwlockattr_t *attr) {
+  CHECK_PASSTHROUGH(pthread_rwlockattr_destroy, attr);
+
   attr->initialized = false;
   return 0;
 }
 
-int unthread_rwlockattr_getpshared(const pthread_rwlockattr_t *attr,
+int pthread_rwlockattr_getpshared(const pthread_rwlockattr_t *attr,
                                   int *pshared) {
+  CHECK_PASSTHROUGH(pthread_rwlockattr_getpshared, attr, pshared);
+
   CHECK(EXIT_ILLEGAL, attr->initialized, "rwlockattr not initialized");
   *pshared = attr->pshared;
   return 0;
 }
 
-int unthread_rwlockattr_init(pthread_rwlockattr_t *attr) {
+int pthread_rwlockattr_init(pthread_rwlockattr_t *attr) {
+  CHECK_PASSTHROUGH(pthread_rwlockattr_init, attr);
+
   *attr = pthread_rwlockattr_default;
   return 0;
 }
 
-int unthread_rwlockattr_setpshared(pthread_rwlockattr_t *attr, int pshared) {
+int pthread_rwlockattr_setpshared(pthread_rwlockattr_t *attr, int pshared) {
+  CHECK_PASSTHROUGH(pthread_rwlockattr_setpshared, attr, pshared);
+  
   CHECK(EXIT_ILLEGAL, attr->initialized, "rwlockattr not initialized");
 
   CHECK(EXIT_ILLEGAL,
@@ -1741,8 +2157,10 @@ int unthread_rwlockattr_setpshared(pthread_rwlockattr_t *attr, int pshared) {
   return 0;
 }
 
-int unthread_rwlock_init(pthread_rwlock_t *rwlock,
+int pthread_rwlock_init(pthread_rwlock_t *rwlock,
                         const pthread_rwlockattr_t *attr) {
+  CHECK_PASSTHROUGH(pthread_rwlock_init, rwlock, attr);
+
   if (attr == NULL) {
     attr = &pthread_rwlockattr_default;
   }
@@ -1761,7 +2179,9 @@ int unthread_rwlock_init(pthread_rwlock_t *rwlock,
   return 0;
 }
 
-int unthread_rwlock_destroy(pthread_rwlock_t *rwlock) {
+int pthread_rwlock_destroy(pthread_rwlock_t *rwlock) {
+  CHECK_PASSTHROUGH(pthread_rwlock_destroy, rwlock);
+
   CHECK(EXIT_ILLEGAL, rwlock->initialized, "rwlock not initialized");
   CHECK(EXIT_ILLEGAL, rwlock->writer == NULL,
         "Tried to destroy locked rwlock with active writer");
@@ -1775,8 +2195,10 @@ int unthread_rwlock_destroy(pthread_rwlock_t *rwlock) {
   return 0;
 }
 
-int unthread_rwlock_rdlock(pthread_rwlock_t *rwlock) {
-  unthread_yield();
+int pthread_rwlock_rdlock(pthread_rwlock_t *rwlock) {
+  CHECK_PASSTHROUGH(pthread_rwlock_rdlock, rwlock);
+
+  pthread_yield();
 
   CHECK(EXIT_ILLEGAL, rwlock->initialized, "rwlock not initialized");
   if (rwlock->writer != NULL) {
@@ -1787,13 +2209,15 @@ int unthread_rwlock_rdlock(pthread_rwlock_t *rwlock) {
     multiset_insert(&rwlock->readers, current);
   }
 
-  unthread_yield();
+  pthread_yield();
 
   return 0;
 }
 
-int unthread_rwlock_wrlock(pthread_rwlock_t *rwlock) {
-  unthread_yield();
+int pthread_rwlock_wrlock(pthread_rwlock_t *rwlock) {
+  CHECK_PASSTHROUGH(pthread_rwlock_wrlock, rwlock);
+
+  pthread_yield();
 
   CHECK(EXIT_ILLEGAL, rwlock->initialized, "rwlock not initialized");
   if (rwlock->writer != NULL || rwlock->readers.len != 0) {
@@ -1804,14 +2228,16 @@ int unthread_rwlock_wrlock(pthread_rwlock_t *rwlock) {
     rwlock->writer = current;
   }
 
-  unthread_yield();
+  pthread_yield();
 
   return 0;
 }
 
-int unthread_rwlock_timedrdlock(pthread_rwlock_t *rwlock,
+int pthread_rwlock_timedrdlock(pthread_rwlock_t *rwlock,
                                const struct timespec *time) {
-  unthread_yield();
+  CHECK_PASSTHROUGH(pthread_rwlock_timedrdlock, rwlock, time);
+
+  pthread_yield();
 
   CHECK(EXIT_ILLEGAL, rwlock->initialized, "rwlock not initialized");
   if (rwlock->writer != NULL) {
@@ -1834,9 +2260,11 @@ int unthread_rwlock_timedrdlock(pthread_rwlock_t *rwlock,
   return 0;
 }
 
-int unthread_rwlock_timedwrlock(pthread_rwlock_t *rwlock,
+int pthread_rwlock_timedwrlock(pthread_rwlock_t *rwlock,
                                const struct timespec *time) {
-  unthread_yield();
+  CHECK_PASSTHROUGH(pthread_rwlock_timedwrlock, rwlock, time);
+
+  pthread_yield();
 
   CHECK(EXIT_ILLEGAL, rwlock->initialized, "rwlock not initialized");
   if (rwlock->writer != NULL || rwlock->readers.len != 0) {
@@ -1856,8 +2284,10 @@ int unthread_rwlock_timedwrlock(pthread_rwlock_t *rwlock,
   return 0;
 }
 
-int unthread_rwlock_tryrdlock(pthread_rwlock_t *rwlock) {
-  unthread_yield();
+int pthread_rwlock_tryrdlock(pthread_rwlock_t *rwlock) {
+  CHECK_PASSTHROUGH(pthread_rwlock_tryrdlock, rwlock);
+
+  pthread_yield();
 
   CHECK(EXIT_ILLEGAL, rwlock->initialized, "rwlock not initialized");
 
@@ -1866,12 +2296,14 @@ int unthread_rwlock_tryrdlock(pthread_rwlock_t *rwlock) {
   }
 
   multiset_insert(&rwlock->readers, current);
-  unthread_yield();
+  pthread_yield();
   return 0;
 }
 
-int unthread_rwlock_trywrlock(pthread_rwlock_t *rwlock) {
-  unthread_yield();
+int pthread_rwlock_trywrlock(pthread_rwlock_t *rwlock) {
+  CHECK_PASSTHROUGH(pthread_rwlock_trywrlock, rwlock);
+
+  pthread_yield();
 
   CHECK(EXIT_ILLEGAL, rwlock->initialized, "rwlock not initialized");
 
@@ -1880,12 +2312,14 @@ int unthread_rwlock_trywrlock(pthread_rwlock_t *rwlock) {
   }
 
   rwlock->writer = current;
-  unthread_yield();
+  pthread_yield();
   return 0;
 }
 
-int unthread_rwlock_unlock(pthread_rwlock_t *rwlock) {
-  unthread_yield();
+int pthread_rwlock_unlock(pthread_rwlock_t *rwlock) {
+  CHECK_PASSTHROUGH(pthread_rwlock_unlock, rwlock);
+
+  pthread_yield();
 
   CHECK(EXIT_ILLEGAL, rwlock->initialized, "rwlock not initialized");
   if (rwlock->writer != NULL) {
@@ -1924,20 +2358,24 @@ int unthread_rwlock_unlock(pthread_rwlock_t *rwlock) {
     }
   }
 
-  unthread_yield();
+  pthread_yield();
 
   return 0;
 }
 
-int unthread_getschedparam(pthread_t thread, int *policy,
+int pthread_getschedparam(pthread_t thread, int *policy,
                           struct sched_param *param) {
+  CHECK_PASSTHROUGH(pthread_getschedparam, thread, policy, param);
+
   *policy = thread->sched_policy;
   *param = thread->sched_param;
   return 0;
 }
 
-int unthread_setschedparam(pthread_t thread, int policy,
+int pthread_setschedparam(pthread_t thread, int policy,
                           const struct sched_param *param) {
+  CHECK_PASSTHROUGH(pthread_setschedparam, thread, policy, param);
+
   thread->sched_policy = policy;
   thread->sched_param = *param;
   return 0;
@@ -1948,25 +2386,33 @@ static const pthread_barrierattr_t barrierattr_default = {
     .pshared = PTHREAD_PROCESS_PRIVATE,
 };
 
-int unthread_barrierattr_init(pthread_barrierattr_t *attr) {
+int pthread_barrierattr_init(pthread_barrierattr_t *attr) {
+  CHECK_PASSTHROUGH(pthread_barrierattr_init, attr);
+
   *attr = barrierattr_default;
   return 0;
 }
 
-int unthread_barrierattr_destroy(pthread_barrierattr_t *attr) {
+int pthread_barrierattr_destroy(pthread_barrierattr_t *attr) {
+  CHECK_PASSTHROUGH(pthread_barrierattr_destroy, attr);
+
   CHECK(EXIT_ILLEGAL, attr->initialized, "barrierattr not initialized");
   attr->initialized = false;
   return 0;
 }
 
-int unthread_barrierattr_getpshared(const pthread_barrierattr_t *attr,
+int pthread_barrierattr_getpshared(const pthread_barrierattr_t *attr,
                                    int *pshared) {
+  CHECK_PASSTHROUGH(pthread_barrierattr_getpshared, attr, pshared);
+
   CHECK(EXIT_ILLEGAL, attr->initialized, "barrierattr not initialized");
   *pshared = attr->pshared;
   return 0;
 }
 
-int unthread_barrierattr_setpshared(pthread_barrierattr_t *attr, int pshared) {
+int pthread_barrierattr_setpshared(pthread_barrierattr_t *attr, int pshared) {
+  CHECK_PASSTHROUGH(pthread_barrierattr_setpshared, attr, pshared);
+  
   CHECK(EXIT_ILLEGAL, attr->initialized, "barrierattr not initialized");
   CHECK(EXIT_ILLEGAL,
         pshared == PTHREAD_PROCESS_PRIVATE || pshared == PTHREAD_PROCESS_SHARED,
@@ -1976,14 +2422,18 @@ int unthread_barrierattr_setpshared(pthread_barrierattr_t *attr, int pshared) {
   return 0;
 }
 
-int unthread_barrier_destroy(pthread_barrier_t *barrier) {
+int pthread_barrier_destroy(pthread_barrier_t *barrier) {
+  CHECK_PASSTHROUGH(pthread_barrier_destroy, barrier);
+
   CHECK(EXIT_ILLEGAL, barrier->initialized, "barrier not initialized");
   barrier->initialized = false;
   return 0;
 }
 
-int unthread_barrier_init(pthread_barrier_t *barrier,
+int pthread_barrier_init(pthread_barrier_t *barrier,
                          const pthread_barrierattr_t *attr, unsigned count) {
+  CHECK_PASSTHROUGH(pthread_barrier_init, barrier, attr, count);
+  
   if (attr == NULL) {
     attr = &barrierattr_default;
   }
@@ -2002,8 +2452,10 @@ int unthread_barrier_init(pthread_barrier_t *barrier,
   return 0;
 }
 
-int unthread_barrier_wait(pthread_barrier_t *barrier) {
-  unthread_yield();
+int pthread_barrier_wait(pthread_barrier_t *barrier) {
+  CHECK_PASSTHROUGH(pthread_barrier_wait, barrier);
+
+  pthread_yield();
 
   current->state_data.barrier_serial = false;
   push(&barrier->waiting, current);
@@ -2029,35 +2481,49 @@ int unthread_barrier_wait(pthread_barrier_t *barrier) {
   return 0;
 }
 
-int unthread_spin_init(pthread_spinlock_t *lock, int pshared) {
+int pthread_spin_init(pthread_spinlock_t *lock, int pshared) {
+  CHECK_PASSTHROUGH(pthread_spin_init, lock, pshared);
+
   CHECK(EXIT_UNSUPPORTED, pshared == PTHREAD_PROCESS_PRIVATE,
         "Only process private spinlocks are supported");
 
-  unthread_mutex_init(&lock->mutex, NULL);
+  pthread_mutex_init(&lock->mutex, NULL);
   return 0;
 }
 
-int unthread_spin_destroy(pthread_spinlock_t *lock) {
-  return unthread_mutex_destroy(&lock->mutex);
+int pthread_spin_destroy(pthread_spinlock_t *lock) {
+  CHECK_PASSTHROUGH(pthread_spin_destroy, lock);
+
+  return pthread_mutex_destroy(&lock->mutex);
 }
 
-int unthread_spin_lock(pthread_spinlock_t *lock) {
-  return unthread_mutex_lock(&lock->mutex);
+int pthread_spin_lock(pthread_spinlock_t *lock) {
+  CHECK_PASSTHROUGH(pthread_spin_lock, lock);
+
+  return pthread_mutex_lock(&lock->mutex);
 }
 
-int unthread_spin_trylock(pthread_spinlock_t *lock) {
-  return unthread_mutex_trylock(&lock->mutex);
+int pthread_spin_trylock(pthread_spinlock_t *lock) {
+  CHECK_PASSTHROUGH(pthread_spin_trylock, lock);
+
+  return pthread_mutex_trylock(&lock->mutex);
 }
 
-int unthread_spin_unlock(pthread_spinlock_t *lock) {
-  return unthread_mutex_unlock(&lock->mutex);
+int pthread_spin_unlock(pthread_spinlock_t *lock) {
+  CHECK_PASSTHROUGH(pthread_spin_unlock, lock);
+
+  return pthread_mutex_unlock(&lock->mutex);
 }
 
-int unthread_getcpuclockid(pthread_t thread, clockid_t *clockid) {
+int pthread_getcpuclockid(pthread_t thread, clockid_t *clockid) {
+  CHECK_PASSTHROUGH(pthread_getcpuclockid, thread, clockid);
+
   return CLOCK_MONOTONIC;
 }
 
-int unthread_setschedprio(pthread_t thread, int prio) {
+int pthread_setschedprio(pthread_t thread, int prio) {
+  CHECK_PASSTHROUGH(pthread_setschedprio, thread, prio);
+
   thread->sched_param.sched_priority = prio;
   return 0;
 }
@@ -2069,7 +2535,9 @@ static const int valid_signals[] = {
     SIGTSTP, SIGSYS,  SIGTERM,   SIGTRAP, SIGTTIN, SIGTTOU,   SIGURG,
     SIGUSR1, SIGUSR2, SIGVTALRM, SIGXCPU, SIGXFSZ, SIGWINCH};
 
-int unthread_kill(pthread_t thread, int sig) {
+int pthread_kill(pthread_t thread, int sig) {
+  CHECK_PASSTHROUGH(pthread_kill, thread, sig);
+
   if (sig != 0) {
     for (size_t i = 0;; i++) {
       CHECK_RET(EINVAL, i < sizeof(valid_signals) / sizeof(*valid_signals),
@@ -2086,13 +2554,15 @@ int unthread_kill(pthread_t thread, int sig) {
   return 0;
 }
 
-int unthread_once(pthread_once_t *once_control, void (*init_routine)(void)) {
-  unthread_yield();
+int pthread_once(pthread_once_t *once_control, void (*init_routine)(void)) {
+  CHECK_PASSTHROUGH(pthread_once, once_control, init_routine);
+  
+  pthread_yield();
 
   if (*once_control == 1) {
     *once_control = 2;
     init_routine();
-    unthread_yield();
+    pthread_yield();
   } else {
     CHECK(EXIT_ILLEGAL, *once_control == 2,
           "pthread_once on uninitialized pthread_once_t");
@@ -2103,9 +2573,15 @@ int unthread_once(pthread_once_t *once_control, void (*init_routine)(void)) {
 
 static int concurrency = 1;
 
-int unthread_getconcurrency() { return concurrency; }
+int pthread_getconcurrency() { 
+  CHECK_PASSTHROUGH(pthread_getconcurrency);
 
-int unthread_setconcurrency(int new_level) {
+  return concurrency;
+}
+
+int pthread_setconcurrency(int new_level) {
+  CHECK_PASSTHROUGH(pthread_setconcurrency, new_level);
+
   CHECK_RET(EINVAL, new_level >= 0,
             "setconcurrency called with negative level: %d", new_level);
   concurrency = new_level;
