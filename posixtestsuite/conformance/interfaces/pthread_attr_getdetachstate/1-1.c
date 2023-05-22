@@ -36,7 +36,7 @@ int main()
 	 * of PTHREAD_CREATE_JOINABLE from the attribute object. */
 	if(pthread_attr_getdetachstate(&new_attr, &detach_state) != 0)
 	{
-		printf("Test FAILED\n");
+		printf("Test FAILED 1\n");
 		return PTS_FAIL;
 	}
 	
@@ -47,7 +47,7 @@ int main()
 	}
 	else
 	{
-		printf("Test FAILED\n");
+		printf("Test FAILED: %d should be %d\n", detach_state, PTHREAD_CREATE_JOINABLE);
 		return PTS_FAIL;
 	}
 }

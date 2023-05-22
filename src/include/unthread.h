@@ -1,7 +1,6 @@
 #ifndef UNTHREAD_UTIL
 #define UNTHREAD_UTIL
 
-#include "bits/pthreadtypes.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -31,5 +30,7 @@ struct entropy_configuration {
 };
 
 void unthread_configure(struct entropy_configuration config);
+void unthread_enable();
+void unthread_disable();
 
 #endif // UNTHREAD_UTIL

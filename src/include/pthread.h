@@ -1,13 +1,11 @@
 // We are intentionally defining PTHREAD_H to prevent the inclusion of
 // the system pthread.h header.
-#ifndef PUNTHREAD_H
-#define PUNTHREAD_H
+#ifndef PTHREAD_H
+#define PTHREAD_H
 
 #include "bits/pthreadtypes.h"
 #include <limits.h>
 #include <sched.h>
-#include <semaphore.h>
-#include <signal.h>
 #include <time.h>
 
 #define PTHREAD_EMPTY_LIST_INITIALIZER                     \

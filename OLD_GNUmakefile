@@ -11,7 +11,7 @@ bin/posixtestsuite/conformance/interfaces/mmap/%: CFLAGS+=-lrt
 
 bin/posixtestsuite/%: posixtestsuite/%.c $(wildcard posixtestsuite/%/*) bin/unthread.o
 	@mkdir -p $$(dirname "$@")
-	$(CC) -o $@ $< bin/unthread.o $(CFLAGS) -I src/include -I posixtestsuite/include -g
+	$(CC) -o $@ $< bin/unthread.o $(CFLAGS) -I posixtestsuite/include -g
 
 bin/posixtestsuite/%-pthread: posixtestsuite/%.c $(wildcard posixtestsuite/%/*)
 	@mkdir -p $$(dirname "$@")

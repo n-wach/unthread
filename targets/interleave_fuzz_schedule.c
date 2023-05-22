@@ -4,6 +4,8 @@
 extern void interleave();
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+  printf("Running interleave()...\n");
+
   // Set up thread schedule.
   unthread_configure((struct entropy_configuration){
     .entropy_source = ENTROPY_SCHEDULE,
@@ -14,5 +16,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     },
   });
 
+
   interleave();
+
+  return 0;
 }

@@ -28,5 +28,29 @@
                 "./csu/../": "/usr/src/glibc"
             }
         },
+        {
+            "name": "Debug interleave-fuzz",
+            "preLaunchTask": "build-interleave-fuzz-schedule",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bazel-bin/targets/interleave_fuzz_schedule_bin",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": false
+                }
+            ],
+            "sourceFileMap": {
+                "./csu/../": "/usr/src/glibc"
+            }
+        },
     ]
 }
