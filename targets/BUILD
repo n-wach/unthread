@@ -7,6 +7,7 @@ cc_library(
     deps = [
         "//src:unthread",
     ],
+    copts = ["-I src/include"],
 )
 
 cc_binary(
@@ -16,6 +17,7 @@ cc_binary(
         ":interleave",
     ],
     visibility = ["//visibility:public"],
+    copts = ["-I src/include"],
 )
 
 cc_fuzz_test(
@@ -24,6 +26,7 @@ cc_fuzz_test(
     deps = [
         ":interleave",
     ],
+    copts = ["-I src/include"],
 )
 
 cc_fuzz_test(
@@ -32,6 +35,7 @@ cc_fuzz_test(
     deps = [
         ":interleave",
     ],
+    copts = ["-I src/include"],
 )
 
 # The same thing, but with function "checkpoints"
@@ -42,6 +46,7 @@ cc_library(
     deps = [
         "//src:unthread",
     ],
+    copts = ["-I src/include"],
 )
 
 cc_binary(
@@ -51,6 +56,7 @@ cc_binary(
         ":checkpoints",
     ],
     visibility = ["//visibility:public"],
+    copts = ["-I src/include"],
 )
 
 cc_fuzz_test(
@@ -59,6 +65,7 @@ cc_fuzz_test(
     deps = [
         ":checkpoints",
     ],
+    copts = ["-I src/include"],
 )
 
 cc_fuzz_test(
@@ -67,5 +74,6 @@ cc_fuzz_test(
     deps = [
         ":checkpoints",
     ],
+    copts = ["-I src/include"],
 )
 

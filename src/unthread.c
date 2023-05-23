@@ -1,8 +1,11 @@
 #define _GNU_SOURCE
 #undef _FORTIFY_SOURCE
 
-#include "include/unthread.h"
-#include "include/pthread.h"
+#include <pthread.h>
+#ifndef UNTHREAD
+#error "Wrong header included. Pass '-I src/include'"
+#endif
+
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>

@@ -1,9 +1,9 @@
-#include "src/include/unthread.h"
+#include "src/include/pthread.h"
 #include <stdio.h>
 
 void* incr(int* val) {
   while(*val < 20) {
-    unthread_yield();
+    pthread_yield();
     (*val)++;
   }
 }
@@ -12,27 +12,27 @@ void* incr(int* val) {
 // We hope to show that a coverage-guided fuzzer, with fine-grained control
 // over the schedule, can reach the trap (a bug!)...
 void* buggy(int *val) {
-  unthread_yield();
+  pthread_yield();
   if(*val != 0) return 0;
-  unthread_yield();
+  pthread_yield();
 
   if(*val != 2) return 0;
-  unthread_yield();
+  pthread_yield();
 
   if(*val != 5) return 0;
-  unthread_yield();
+  pthread_yield();
 
   if(*val != 7) return 0;
-  unthread_yield();
+  pthread_yield();
 
   if(*val != 12) return 0;
-  unthread_yield();
+  pthread_yield();
 
   if(*val != 15) return 0;
-  unthread_yield();
+  pthread_yield();
 
   if(*val != 15) return 0;
-  unthread_yield();
+  pthread_yield();
   
   if(*val == 17) {
     // a "bug"!
@@ -46,10 +46,10 @@ int interleave() {
   int val = 0;
   
   pthread_t a, b;
-  unthread_create(&a, NULL, incr, &val);
-  unthread_create(&b, NULL, buggy, &val);
-  unthread_join(a, NULL);
-  unthread_join(b, NULL);
+  pthread_create(&a, NULL, incr, &val);
+  pthread_create(&b, NULL, buggy, &val);
+  pthread_join(a, NULL);
+  pthread_join(b, NULL);
   
   return 0;
 }

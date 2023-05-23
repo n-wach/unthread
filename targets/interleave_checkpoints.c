@@ -1,9 +1,9 @@
-#include "src/include/unthread.h"
+#include "src/include/pthread.h"
 #include <stdio.h>
 
 void* incr(int* val) {
   while(*val < 20) {
-    unthread_yield();
+    pthread_yield();
     (*val)++;
   }
 }
@@ -29,31 +29,31 @@ void ckpt10() {};
 void* buggy(int *val) {
   ckpt1();
   if(*val != 0) return 0;
-  unthread_yield();
+  pthread_yield();
 
   ckpt2();
   if(*val != 2) return 0;
-  unthread_yield();
+  pthread_yield();
 
   ckpt3();
   if(*val != 5) return 0;
-  unthread_yield();
+  pthread_yield();
 
   ckpt4();
   if(*val != 7) return 0;
-  unthread_yield();
+  pthread_yield();
 
   ckpt5();
   if(*val != 12) return 0;
-  unthread_yield();
+  pthread_yield();
 
   ckpt6();
   if(*val != 15) return 0;
-  unthread_yield();
+  pthread_yield();
 
   ckpt7();
   if(*val != 15) return 0;
-  unthread_yield();
+  pthread_yield();
   
   ckpt8();
   if(*val == 17) {
@@ -69,10 +69,10 @@ int interleave() {
   int val = 0;
   
   pthread_t a, b;
-  unthread_create(&a, NULL, incr, &val);
-  unthread_create(&b, NULL, buggy, &val);
-  unthread_join(a, NULL);
-  unthread_join(b, NULL);
+  pthread_create(&a, NULL, incr, &val);
+  pthread_create(&b, NULL, buggy, &val);
+  pthread_join(a, NULL);
+  pthread_join(b, NULL);
   
   return 0;
 }

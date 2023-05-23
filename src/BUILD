@@ -6,7 +6,6 @@ cc_library(
     hdrs = [
         "include/bits/pthreadtypes.h",
         "include/pthread.h",
-        "include/unthread.h",
     ],
     copts = [
         "-std=gnu11",

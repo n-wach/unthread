@@ -1,6 +1,8 @@
 #ifndef PTHREADTYPES_H
 #define PTHREADTYPES_H
 
+#define UNTHREADTYPES
+
 #include <bits/types/struct_sched_param.h>
 #include <stddef.h>
 #include <stdint.h>
