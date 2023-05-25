@@ -8,7 +8,7 @@ cc_library(
         "include/pthread.h",
     ],
     copts = [
-        "-std=gnu11",
+        "-std=gnu17",
         "-I src/include",
     ],
     visibility = [

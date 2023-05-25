@@ -1,9 +1,15 @@
 # Force the use of Clang for C++ builds.
-build --action_env=CC=clang
-build --action_env=CXX=clang++
+build --action_env=CC=clang-16
+build --action_env=CXX=clang++-16
+build --client_env=CC=clang-16
 build --compilation_mode=dbg
 
-# Define the --config=asan-libfuzzer configuration.
-build:asan-libfuzzer --@rules_fuzzing//fuzzing:cc_engine=@rules_fuzzing//fuzzing/engines:libfuzzer
-build:asan-libfuzzer --@rules_fuzzing//fuzzing:cc_engine_instrumentation=libfuzzer
-build:asan-libfuzzer --@rules_fuzzing//fuzzing:cc_engine_sanitizer=asan
+build --cxxopt=-std=c++17
+
+# Define clang flags for fuzzing with centipede.
+# From: https://github.com/google/fuzztest/blob/main/centipede/clang-flags.txt
+build:centipede --copt=-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+build:centipede --copt=-fno-builtin
+build:centipede --copt=-fsanitize-coverage=trace-pc-guard,pc-table,trace-cmp,control-flow
+build:centipede --copt=-O2
+build:centipede --copt=-gline-tables-only

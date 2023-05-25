@@ -7,6 +7,9 @@
         "stddef.h": "c",
         "pthreadtypes.h": "c",
         "functional": "c",
-        "cstring": "c"
+        "cstring": "c",
+        "memory.h": "c",
+        "string.h": "c",
+        "features.h": "c"
     }
 }

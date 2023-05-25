@@ -2114,3 +2114,9 @@ int unthread_setconcurrency(int new_level) {
   concurrency = new_level;
   return 0;
 }
+
+// Fuzzing support
+// Custom features. Populate during a run.
+// __attribute__((used, retain, section("__centipede_extra_features")))
+// static uint64_t extra_features[10000];
+

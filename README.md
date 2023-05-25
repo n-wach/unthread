@@ -188,6 +188,16 @@ The above will only generate the minimum number of seeds to cover the outcomes. 
 can be done by executing `UNTHREAD_ITER=N make unthread-fuzz` where `N` is the number of iterations
 to fuzz.
 
+Next Steps
+----------
+
+1. Switch from libFuzzer to Centipede. IDK what this entails. Probably need to get centipede included in BUILD/WORKSPACE. Get the runner binary working, and linked with the target. Probably will need to make scripts for some steps for easy fuzzing, because rules_fuzzing doesn't support centipede. After this step, I should be able to repeat by experiment on interleaving test with centipede as the fuzzer.
+
+2. More tests/examples. Need to automate the process. Unclear where to get the tests... At this point, I should have better evidence, and can move on to integration.
+
+3. So unthread will need to be able to report the PC's of it's threads... This will enable coverage metrics. Maybe it can directly record the features somehow? Or I need to modify centipede. This is the confusing part..... But ideally I'd like to 
+
+
 See also
 --------
 

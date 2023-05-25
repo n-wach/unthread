@@ -46,8 +46,8 @@ int interleave() {
   int val = 0;
   
   pthread_t a, b;
-  pthread_create(&a, NULL, incr, &val);
-  pthread_create(&b, NULL, buggy, &val);
+  pthread_create(&a, NULL, (void *(*)(void*)) incr, &val);
+  pthread_create(&b, NULL, (void *(*)(void*)) buggy, &val);
   pthread_join(a, NULL);
   pthread_join(b, NULL);
   

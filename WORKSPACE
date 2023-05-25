@@ -3,9 +3,11 @@ workspace(
 )
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository", "new_git_repository")
 
 # Hedron's Compile Commands Extractor for Bazel
 # https://github.com/hedronvision/bazel-compile-commands-extractor
+# Run with: bazel run @hedron_compile_commands//:refresh_all
 http_archive(
     name = "hedron_compile_commands",
 
@@ -18,20 +20,50 @@ http_archive(
 )
 load("@hedron_compile_commands//:workspace_setup.bzl", "hedron_compile_commands_setup")
 hedron_compile_commands_setup()
-# Run with: bazel run @hedron_compile_commands//:refresh_all
 
+###############################################################################
+# Bazel Skylib (transitively required by com_google_absl).
+###############################################################################
 
-# Fuzzing!
 http_archive(
-    name = "rules_fuzzing",
-    sha256 = "d9002dd3cd6437017f08593124fdd1b13b3473c7b929ceb0e60d317cb9346118",
-    strip_prefix = "rules_fuzzing-0.3.2",
-    urls = ["https://github.com/bazelbuild/rules_fuzzing/archive/v0.3.2.zip"],
+    name = "bazel_skylib",
+    sha256 = "f24ab666394232f834f74d19e2ff142b0af17466ea0c69a3f4c276ee75f6efce",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.4.0/bazel-skylib-1.4.0.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.4.0/bazel-skylib-1.4.0.tar.gz",
+    ],
 )
 
-load("@rules_fuzzing//fuzzing:repositories.bzl", "rules_fuzzing_dependencies")
-rules_fuzzing_dependencies()
+load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 
-load("@rules_fuzzing//fuzzing:init.bzl", "rules_fuzzing_init")
-rules_fuzzing_init()
+bazel_skylib_workspace()
 
+###############################################################################
+# Abseil (required by fuzztest).
+###############################################################################
+
+abseil_ref = "refs/tags"
+
+abseil_ver = "20230125.0"
+
+# Use these values to get the tip of the master branch:
+# abseil_ref = "refs/heads"
+# abseil_ver = "master"
+
+http_archive(
+    name = "com_google_absl",
+    sha256 = "3ea49a7d97421b88a8c48a0de16c16048e17725c7ec0f1d3ea2683a2a75adc21",
+    strip_prefix = "abseil-cpp-%s" % abseil_ver,
+    url = "https://github.com/abseil/abseil-cpp/archive/%s/%s.tar.gz" % (abseil_ref, abseil_ver),
+)
+
+# To use the latest version of FuzzTest, update this regularly to the latest
+# commit in the main branch: https://github.com/google/fuzztest/commits/main
+FUZZTEST_COMMIT = "3af67e934bf8d43a7413f3fc65947ff23ae19ea5"
+
+http_archive(
+    name = "com_google_fuzztest",
+    strip_prefix = "fuzztest-" + FUZZTEST_COMMIT,
+    sha256 = "8b22661aa47040d7b2c92df65257c1146e88c9cc0eacc062df5080607cef0ceb",
+    url = "https://github.com/google/fuzztest/archive/" + FUZZTEST_COMMIT + ".zip",
+)

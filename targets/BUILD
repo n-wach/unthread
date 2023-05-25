@@ -1,5 +1,3 @@
-load("@rules_fuzzing//fuzzing:cc_defs.bzl", "cc_fuzz_test")
-
 cc_library(
     name = "interleave",
     srcs = ["interleave.c"],
@@ -20,22 +18,28 @@ cc_binary(
     copts = ["-I src/include"],
 )
 
-cc_fuzz_test(
+cc_binary(
     name = "interleave_fuzz_schedule",
     srcs = ["interleave_fuzz_schedule.c"],
     deps = [
         ":interleave",
+        "@com_google_fuzztest//centipede:centipede_runner",
     ],
-    copts = ["-I src/include"],
+    copts = [
+        "-I src/include",
+    ],
 )
 
-cc_fuzz_test(
+cc_binary(
     name = "interleave_fuzz_seed",
     srcs = ["interleave_fuzz_seed.c"],
     deps = [
         ":interleave",
+        "@com_google_fuzztest//centipede:centipede_runner",
     ],
-    copts = ["-I src/include"],
+    copts = [
+        "-I src/include",
+    ],
 )
 
 # The same thing, but with function "checkpoints"
@@ -58,22 +62,3 @@ cc_binary(
     visibility = ["//visibility:public"],
     copts = ["-I src/include"],
 )
-
-cc_fuzz_test(
-    name = "checkpoints_fuzz_schedule",
-    srcs = ["interleave_fuzz_schedule.c"],
-    deps = [
-        ":checkpoints",
-    ],
-    copts = ["-I src/include"],
-)
-
-cc_fuzz_test(
-    name = "checkpoints_fuzz_seed",
-    srcs = ["interleave_fuzz_seed.c"],
-    deps = [
-        ":checkpoints",
-    ],
-    copts = ["-I src/include"],
-)
-
