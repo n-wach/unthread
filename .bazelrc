@@ -3,13 +3,4 @@ build --action_env=CC=clang-16
 build --action_env=CXX=clang++-16
 build --client_env=CC=clang-16
 build --compilation_mode=dbg
-
 build --cxxopt=-std=c++17
-
-# Define clang flags for fuzzing with centipede.
-# From: https://github.com/google/fuzztest/blob/main/centipede/clang-flags.txt
-build:centipede --copt=-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-build:centipede --copt=-fno-builtin
-build:centipede --copt=-fsanitize-coverage=trace-pc-guard,pc-table,trace-cmp,control-flow
-build:centipede --copt=-O2
-build:centipede --copt=-gline-tables-only

@@ -5,7 +5,12 @@ cc_library(
     deps = [
         "//src:unthread",
     ],
-    copts = ["-I src/include"],
+    copts = [
+        "-I src/include",
+        "-fsanitize-coverage=trace-pc-guard,pc-table,trace-cmp,control-flow",
+        "-O2",
+        "-gline-tables-only",
+    ],
 )
 
 cc_binary(
@@ -14,8 +19,8 @@ cc_binary(
     deps = [
         ":interleave",
     ],
-    visibility = ["//visibility:public"],
     copts = ["-I src/include"],
+    visibility = ["//visibility:public"],
 )
 
 cc_binary(
@@ -28,6 +33,7 @@ cc_binary(
     copts = [
         "-I src/include",
     ],
+    visibility = ["//visibility:public"],
 )
 
 cc_binary(
@@ -40,25 +46,5 @@ cc_binary(
     copts = [
         "-I src/include",
     ],
-)
-
-# The same thing, but with function "checkpoints"
-cc_library(
-    name = "checkpoints",
-    srcs = ["interleave_checkpoints.c"],
     visibility = ["//visibility:public"],
-    deps = [
-        "//src:unthread",
-    ],
-    copts = ["-I src/include"],
-)
-
-cc_binary(
-    name = "checkpoints_main",
-    srcs = ["interleave_main.c"],
-    deps = [
-        ":checkpoints",
-    ],
-    visibility = ["//visibility:public"],
-    copts = ["-I src/include"],
 )
