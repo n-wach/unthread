@@ -2,5 +2,5 @@
 build --action_env=CC=clang-16
 build --action_env=CXX=clang++-16
 build --client_env=CC=clang-16
-build --compilation_mode=dbg
+build --compilation_mode=opt
 build --cxxopt=-std=c++17
