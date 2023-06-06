@@ -9,5 +9,6 @@ make_fuzz_scripts(
         # "safestack_relacy", // timeouts
         "workstealqueue_mutex_1",
         "workstealqueue_mutex_2",
+        "workstealqueue_mutex_3",
     ]
 )
