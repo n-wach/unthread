@@ -153,8 +153,6 @@ _Bool Steal(Obj **result) {
     //
     long h = readV(&q.head);
     writeV(&q.head, h + 1);
-    
-    pthread_yield();
 
     // insert a memory fence here if memory is not sequentially consistent
     //
@@ -290,7 +288,7 @@ void Push(Obj* elem) {
     // initial mask of 0, where size is 2^0 == 1, but the tasks array is
     // still null.
     //
-    pthread_yield();
+    
     // Correct: if (t < readV(&q.head) + mask && t < MaxSize)
 // #define BUG3
 #ifdef BUG3
