@@ -7,5 +7,6 @@ make_fuzz_scripts(
         "bounded_buffer",
         # "elimination_backoff_stack", // spurious exit 11
         # "safestack_relacy", // timeouts
+        "workstealqueue_mutex_1",
     ]
 )
