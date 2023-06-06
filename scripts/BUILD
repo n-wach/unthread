@@ -13,5 +13,7 @@ make_fuzz_scripts(
         "bigshot_p",
         # "indexer", # timeouts
         "lazy",
+        "queue",
+        # "queue_ok", # i think this is a patched version of queue?
     ]
 )
