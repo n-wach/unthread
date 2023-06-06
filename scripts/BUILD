@@ -7,3 +7,7 @@ make_fuzz_scripts(
 make_fuzz_scripts(
     name = "checkpoints",
 )
+
+make_fuzz_scripts(
+    name = "bounded_buffer",
+)
