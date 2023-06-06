@@ -18,5 +18,8 @@ make_fuzz_scripts(
         "singleton_b",
         "stack_2",
         # "triangular", # spurious exit 4
+        # "szymanski", # deadlocks. (infinite loop)
+        "phase_1", # deadlocks, detected.
+        "deadlock_1", # deadlocks, detected.
     ]
 )
