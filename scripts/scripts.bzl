@@ -1,4 +1,4 @@
-def make_fuzz_scripts(name):
+def make_fuzz_script(name):
     native.sh_binary(
         name = name + "_fuzz_schedule",
         srcs = ["fuzz.sh"],
@@ -23,4 +23,9 @@ def make_fuzz_scripts(name):
             "$(location //targets:" + name + "_fuzz_seed)",
         ],
     )
+
+
+def make_fuzz_scripts(names):
+    for name in names:
+        make_fuzz_script(name)
 

@@ -1,17 +1,11 @@
 load("//scripts:scripts.bzl", "make_fuzz_scripts")
 
 make_fuzz_scripts(
-    name = "interleave",
+    names = [
+        "interleave",
+        "checkpoints",
+        "bounded_buffer",
+        # "elimination_backoff_stack", // spurious exit 11
+        # "safestack_relacy", // timeouts
+    ]
 )
-
-make_fuzz_scripts(
-    name = "checkpoints",
-)
-
-make_fuzz_scripts(
-    name = "bounded_buffer",
-)
-
-# make_fuzz_scripts(
-#     name = "elimination_backoff_stack",
-# )

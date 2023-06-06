@@ -51,3 +51,14 @@ def make_fuzz_target(name):
             "-I src/include",
         ]
     )
+
+
+def make_fuzz_targets(names):
+    for name in names:
+        make_fuzz_target(name)
+
+
+def make_fuzz_targets_automatically():
+    for name in native.glob(["target_*.c"]):
+        make_fuzz_target(name[7:-2])
+

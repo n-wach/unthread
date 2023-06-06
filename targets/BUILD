@@ -1,18 +1,3 @@
-load("//targets:targets.bzl", "make_fuzz_target")
+load("//targets:targets.bzl", "make_fuzz_targets_automatically")
 
-make_fuzz_target(
-    name = "checkpoints",
-)
-
-make_fuzz_target(
-    name = "interleave",
-)
-
-make_fuzz_target(
-    name = "bounded_buffer",
-)
-
-# make_fuzz_target(
-#     name = "elimination_backoff_stack",
-# )
-
+make_fuzz_targets_automatically()
