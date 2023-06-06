@@ -16,5 +16,6 @@ make_fuzz_scripts(
         "queue",
         # "queue_ok", # i think this is a patched version of queue?
         "singleton_b",
+        "stack_2",
     ]
 )
