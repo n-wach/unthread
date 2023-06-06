@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-extern void interleave();
+extern void fuzz_target();
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   // Set up thread schedule.
@@ -20,5 +20,5 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     },
   });
 
-  interleave();
+  fuzz_target();
 }

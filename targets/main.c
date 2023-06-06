@@ -1,11 +1,10 @@
 #include "src/include/pthread.h"
 #include <stdio.h>
 
-extern void interleave();
+extern void fuzz_target();
 
 int main() {
-  // Set up thread schedule.
-
+  // A hardcoded seed for manually testing a target.
   unthread_configure((struct entropy_configuration){
     .entropy_source = ENTROPY_PRNG_SEED,
     .prng_seed = {
@@ -13,5 +12,5 @@ int main() {
     },
   });
 
-  interleave();
+  fuzz_target();
 }
