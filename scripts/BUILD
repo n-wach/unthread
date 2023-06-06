@@ -15,5 +15,6 @@ make_fuzz_scripts(
         "lazy",
         "queue",
         # "queue_ok", # i think this is a patched version of queue?
+        "singleton_b",
     ]
 )
