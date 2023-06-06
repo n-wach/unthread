@@ -329,6 +329,13 @@ void unthread_configure(struct entropy_configuration config) {
   entropy_configuration = config;
   switch(entropy_configuration.entropy_source) {
     case ENTROPY_PRNG_SEED:
+      // Cannot be all zeros.
+      if(config.prng_seed.state[0] == 0 &&
+         config.prng_seed.state[1] == 0 &&
+         config.prng_seed.state[2] == 0 &&
+         config.prng_seed.state[3] == 0) {
+        config.prng_seed.state[0] = 1;
+      }
       noise_prng_state[0] = config.prng_seed.state[0];
       noise_prng_state[1] = config.prng_seed.state[1];
       noise_prng_state[2] = config.prng_seed.state[2];
