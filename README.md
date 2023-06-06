@@ -191,11 +191,36 @@ to fuzz.
 Next Steps
 ----------
 
-1. Switch from libFuzzer to Centipede. IDK what this entails. Probably need to get centipede included in BUILD/WORKSPACE. Get the runner binary working, and linked with the target. Probably will need to make scripts for some steps for easy fuzzing, because rules_fuzzing doesn't support centipede. After this step, I should be able to repeat by experiment on interleaving test with centipede as the fuzzer.
+Ned notes:
 
-2. More tests/examples. Need to automate the process. Unclear where to get the tests... At this point, I should have better evidence, and can move on to integration.
+0. Current status
+  0. Intercepting doesn't work (startup and ASAN, etc.)
+  1. Recompile target with a header to change names (reasonable because we already recompile with FUZZING flag)
+  2. Centipede drastically sped up schedule-fuzz (~1s). Slowed down seed-fuzz (20hr+)
+  3. Easy to add custom features with centipede.
 
-3. So unthread will need to be able to report the PC's of it's threads... This will enable coverage metrics. Maybe it can directly record the features somehow? Or I need to modify centipede. This is the confusing part..... But ideally I'd like to 
+1. I need more tests/examples. Unclear where to get them.
+  1. SV-COMP Suite (used by por-se)
+  2. GNU sort
+  3. memcache
+
+  4. fuzz-bench??
+  5. Targets in OSS-Fuzz? look for race conditions. https://bugs.chromium.org/p/oss-fuzz/issues/list?q=race&can=1
+    0. https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=9417
+    1. https://github.com/libvips/libvips/blob/4176ab21061f425b4ee274f7f9c6634dacf5ca7c/fuzz/webpsave_buffer_fuzzer.cc#L6
+    2. https://github.com/libjxl/libjxl/blob/2ee9886a7c3b31564f7431812bb6c6a4a03927b2/lib/threads/thread_parallel_runner_internal.cc#L190
+    3. 
+  
+  6. bind?
+  7. chrome? webworkers
+  8. curl?
+  9. envoy proxy?
+ 10. ???
+ 11. a
+
+2. Coverage metrics: before any longjmp/swapcontext, use libunwind to get a hash of the thread's stack. Store this somewhere, and delete if thread ever terminates. Whenever there is a *scheduling decision*, get all thread stack hashes, and hash them together, somehow also encoding the decision. This is a the concurrency coverage feature to report.
+  1. module boundary
+  2. only consider a few frames, otherwise going to be very noisy
 
 
 See also
