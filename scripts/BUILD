@@ -11,5 +11,7 @@ make_fuzz_scripts(
         # "workstealqueue_mutex_2", # not finding bug...
         "workstealqueue_mutex_3",
         "bigshot_p",
+        # "indexer", # timeouts
+        
     ]
 )
