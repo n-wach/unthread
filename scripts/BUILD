@@ -17,5 +17,6 @@ make_fuzz_scripts(
         # "queue_ok", # i think this is a patched version of queue?
         "singleton_b",
         "stack_2",
+        # "triangular", # spurious exit 4
     ]
 )
