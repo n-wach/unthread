@@ -3,7 +3,7 @@
 
 void* incr(int* val) {
   while(*val < 20) {
-    pthread_yield();
+    sched_yield();
     (*val)++;
   }
 }
@@ -29,31 +29,31 @@ void ckpt10() {};
 void* buggy(int *val) {
   ckpt1();
   if(*val != 0) return 0;
-  pthread_yield();
+  sched_yield();
 
   ckpt2();
   if(*val != 2) return 0;
-  pthread_yield();
+  sched_yield();
 
   ckpt3();
   if(*val != 5) return 0;
-  pthread_yield();
+  sched_yield();
 
   ckpt4();
   if(*val != 7) return 0;
-  pthread_yield();
+  sched_yield();
 
   ckpt5();
   if(*val != 12) return 0;
-  pthread_yield();
+  sched_yield();
 
   ckpt6();
   if(*val != 15) return 0;
-  pthread_yield();
+  sched_yield();
 
   ckpt7();
   if(*val != 15) return 0;
-  pthread_yield();
+  sched_yield();
   
   ckpt8();
   if(*val == 17) {

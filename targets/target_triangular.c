@@ -8,8 +8,8 @@
 
 #include <pthread.h>
 
-#define __VERIFIER_atomic_begin() pthread_yield()
-#define __VERIFIER_atomic_end() pthread_yield()
+#define __VERIFIER_atomic_begin() sched_yield()
+#define __VERIFIER_atomic_end() sched_yield()
 
 extern void abort(void);
 #include <assert.h>

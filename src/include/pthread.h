@@ -267,6 +267,7 @@ int unthread_setconcurrency(int new_level);
 #define pthread_join unthread_join
 #define pthread_exit unthread_exit
 #define pthread_yield unthread_yield
+#define sched_yield unthread_yield /* alias */
 #define pthread_self unthread_self
 #define pthread_detach unthread_detach
 #define pthread_equal unthread_equal

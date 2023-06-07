@@ -15,8 +15,8 @@ void reach_error() { __builtin_trap(); }
 void assume_abort_if_not(int cond) {
   if(!cond) {longjmp(abort_buf, 1);}
 }
-#define __VERIFIER_atomic_begin(void) pthread_yield()
-#define __VERIFIER_atomic_end(void) pthread_yield()
+#define __VERIFIER_atomic_begin(void) sched_yield()
+#define __VERIFIER_atomic_end(void) sched_yield()
 
 typedef struct Cell Cell;
 struct Cell {

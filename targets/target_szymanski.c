@@ -2,8 +2,8 @@
 
 #include <assert.h>
 void reach_error() { __builtin_trap(); }
-#define __VERIFIER_atomic_begin() pthread_yield()
-#define __VERIFIER_atomic_end() pthread_yield()
+#define __VERIFIER_atomic_begin() sched_yield()
+#define __VERIFIER_atomic_end() sched_yield()
 
 /* Testcase from Threader's distribution. For details see:
    http://www.model.in.tum.de/~popeea/research/threader

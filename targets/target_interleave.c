@@ -3,7 +3,7 @@
 
 void* incr(int* val) {
   while(*val < 20) {
-    pthread_yield();
+    sched_yield();
     (*val)++;
   }
 }
@@ -12,27 +12,27 @@ void* incr(int* val) {
 // We hope to show that a coverage-guided fuzzer, with fine-grained control
 // over the schedule, can reach the trap (a bug!)...
 void* buggy(int *val) {
-  pthread_yield();
+  sched_yield();
   if(*val != 0) return 0;
-  pthread_yield();
+  sched_yield();
 
   if(*val != 2) return 0;
-  pthread_yield();
+  sched_yield();
 
   if(*val != 5) return 0;
-  pthread_yield();
+  sched_yield();
 
   if(*val != 7) return 0;
-  pthread_yield();
+  sched_yield();
 
   if(*val != 12) return 0;
-  pthread_yield();
+  sched_yield();
 
   if(*val != 15) return 0;
-  pthread_yield();
+  sched_yield();
 
   if(*val != 15) return 0;
-  pthread_yield();
+  sched_yield();
   
   if(*val == 17) {
     // a "bug"!

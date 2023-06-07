@@ -35,31 +35,31 @@ void error(void)
 
 void inc_top(void)
 {
-  pthread_yield();
+  sched_yield();
   top++;
 }
 
 void dec_top(void)
 {
-  pthread_yield();
+  sched_yield();
   top--;
 }
 
 int get_top(void)
 {
-  pthread_yield();
+  sched_yield();
   return top;
 }
 
 int stack_empty(void)
 {
-  pthread_yield();
+  sched_yield();
   return (top==0) ? TRUE : FALSE;
 }
 
 int push(unsigned int *stack, int x)
 {
-  pthread_yield();
+  sched_yield();
   if (top==SIZE) 
   {
     printf("stack overflow\n");
@@ -75,7 +75,7 @@ int push(unsigned int *stack, int x)
 
 int pop(unsigned int *stack)
 {
-  pthread_yield();
+  sched_yield();
   if (top==0) 
   {
     printf("stack underflow\n");	

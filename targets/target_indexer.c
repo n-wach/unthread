@@ -32,9 +32,9 @@ int cas(int * tab, int h, int val, int new_val)
   pthread_mutex_lock(&cas_mutex[h]);
   
  
-  pthread_yield();
+  sched_yield();
   if ( tab[h] == val ) {
-    pthread_yield();
+    sched_yield();
     tab[h] = new_val;
     ret_val = 1;
   }
@@ -52,7 +52,7 @@ void * thread_routine(void * arg)
   tid = *((int *)arg);
   
   while(1){
-    pthread_yield();
+    sched_yield();
 
     if ( m < MAX ){
       w = (++m) * 11 + tid;
@@ -70,7 +70,7 @@ void * thread_routine(void * arg)
     }
 
     while ( cas(table, h, 0, w) == 0){
-      pthread_yield();
+      sched_yield();
       h = (h+1) % SIZE;
     }
   }
