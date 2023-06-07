@@ -18,7 +18,7 @@ void reach_error() { __builtin_trap(); }
 
 void __VERIFIER_assert(int expression) { if (!expression) { ERROR: {reach_error();abort();}}; return; }
 
-char *v;
+char *v = NULL;
 
 void *thread1(void * arg)
 {
@@ -35,13 +35,14 @@ void *thread2(void *arg)
 int fuzz_target()
 {
   pthread_t t1, t2;
+  v = NULL;
 
   pthread_create(&t1, 0, thread1, 0);
   pthread_create(&t2, 0, thread2, 0);
   pthread_join(t1, 0);
   pthread_join(t2, 0);
 
-  __VERIFIER_assert(!v || v[0] == 'B');
+  __VERIFIER_assert(v && v[0] == 'B');
 
   return 0;
 }

@@ -48,13 +48,14 @@ void *thread3(void *arg)
 
 int fuzz_target()
 {
+  data = 0;
   pthread_mutex_init(&mutex, 0);
 
   pthread_t t1, t2, t3;
 
+  pthread_create(&t3, 0, thread3, 0);
   pthread_create(&t1, 0, thread1, 0);
   pthread_create(&t2, 0, thread2, 0);
-  pthread_create(&t3, 0, thread3, 0);
 
   pthread_join(t1, 0);
   pthread_join(t2, 0);

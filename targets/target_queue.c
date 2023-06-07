@@ -12,6 +12,7 @@ void reach_error() { __builtin_trap(); }
 #include <pthread.h>
 #include <stdio.h>
 #include <assert.h>
+#include <memory.h>
 
 #define SIZE	(20) // Other benchmarks include SIZE 200, 800
 #define EMPTY	(-1)
@@ -73,6 +74,7 @@ int enqueue(QType *q, int x)
     q->tail++;
   }
 
+	printf("enqueue\n");
   return 0;
 }
 
@@ -89,6 +91,7 @@ int dequeue(QType *q)
   else 
     q->head++;
 
+	printf("dequeue %d\n", x);
   return x;
 }
 
@@ -156,9 +159,11 @@ int fuzz_target(void)
   enqueue_flag=TRUE;
   dequeue_flag=FALSE;
 
+  memset(stored_elements, 0, sizeof(stored_elements));
+
   init(&queue);
 
-  if (!empty(&queue)==EMPTY) {
+  if (empty(&queue)!=EMPTY) {
     ERROR: {reach_error();abort();}
     goto ERROR;
   }

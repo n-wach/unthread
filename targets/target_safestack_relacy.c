@@ -29,7 +29,7 @@ typedef struct SafeStackItem
 
 typedef struct SafeStack
 {
-    SafeStackItem array[3];
+    SafeStackItem array[NUM_THREADS];
     int head;
     int count;
 } SafeStack;

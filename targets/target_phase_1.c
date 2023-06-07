@@ -7,10 +7,11 @@ pthread_mutex_t  x, y;
 
 void *thread1(void *arg)
 {
-  pthread_mutex_lock(&x); /* BAD: deadlock */
+  pthread_mutex_lock(&x); 
   pthread_mutex_unlock(&x);
   pthread_mutex_lock(&x);
-//  pthread_mutex_unlock(&x); 
+  /* BAD: deadlock */
+  // pthread_mutex_unlock(&x); 
 
   pthread_mutex_lock(&y);
   pthread_mutex_unlock(&y);
@@ -18,9 +19,7 @@ void *thread1(void *arg)
   pthread_mutex_unlock(&y);
 }
 
-
-int main()
-{
+int fuzz_target() {
   pthread_mutex_init(&x, NULL);
   pthread_mutex_init(&y, NULL);
 

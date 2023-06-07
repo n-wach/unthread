@@ -5,22 +5,25 @@ make_fuzz_scripts(
         "interleave",
         "checkpoints",
         "bounded_buffer",
-        # "elimination_backoff_stack", # spurious exit 11
-        # "safestack_relacy", # timeouts
         "workstealqueue_mutex_1",
-        # "workstealqueue_mutex_2", # not finding bug...
         "workstealqueue_mutex_3",
         "bigshot_p",
-        # "indexer", # timeouts
         "lazy",
-        "queue",
-        # "queue_ok", # i think this is a patched version of queue?
         "singleton_b",
-        "stack_2",
-        # "triangular", # spurious exit 4
-        # "szymanski", # deadlocks. (infinite loop)
+        "triangular",
+        "stringbuffer",
+        
         "phase_1", # deadlocks, detected.
         "deadlock_1", # deadlocks, detected.
-        "stringbuffer",
+
+        # "szymanski", # timeout. (infinite loop)
+        # "safestack_relacy", # timeout. (infinite loop)
+
+        # "indexer", # I'm not sure what the bug is... not finding anything
+        # "stack_2", # I'm not sure what the bug is... not finding anything
+        # "workstealqueue_mutex_2", # I'm not sure what the bug is...
+        # "elimination_backoff_stack", # crashing.
+        # "queue", # dumb test. trivial bug that triggers on every run.
+        # "queue_ok", # queue but patched to remove bug.
     ]
 )

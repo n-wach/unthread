@@ -7,7 +7,7 @@
 *                                                       *
 ********************************************************/
 
-// Like mutex_2 but we include BUG3
+// Like mutex_2 but we exclude BUG:'s and include BUG3
 #define BUG3
 
 #include <assert.h>

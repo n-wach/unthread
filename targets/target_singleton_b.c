@@ -36,21 +36,27 @@ void *thread3(void *arg)
   return 0;
 }
 
+#define NUM_THREADS 10
+
 void *thread0(void *arg)
 {
-  pthread_t t1, t2, t3, t4, t5;
+  pthread_t init, last;
+  pthread_t others[NUM_THREADS];
 
-  pthread_create(&t1, 0, thread1, 0);
-  pthread_join(t1, 0);
-  pthread_create(&t2, 0, thread2, 0);  
-  pthread_create(&t3, 0, thread3, 0);
-  pthread_create(&t4, 0, thread2, 0);
-  pthread_create(&t5, 0, thread2, 0);
-  pthread_join(t2, 0);
-  pthread_join(t3, 0);
-  pthread_join(t4, 0);
-  pthread_join(t5, 0);
+  pthread_create(&init, 0, thread1, 0);
+  pthread_join(init, 0);
 
+  pthread_create(&last, 0, thread3, 0); // this thread must run last to trigger the bug.
+
+  for(int i=0; i<NUM_THREADS; i++) {
+    pthread_create(&others[i], 0, thread2, 0);
+  }
+  for(int i=0; i<NUM_THREADS; i++) {
+    pthread_join(others[i], 0);
+  }
+
+  pthread_join(last, 0);
+  
   return 0;
 }
 
@@ -61,7 +67,10 @@ int fuzz_target(void)
   pthread_create(&t, 0, thread0, 0);
   pthread_join(t, 0);
 
-  __VERIFIER_assert(v[0] == 'X'); // <-- wrong, the only thread that writes 'Y' can be the last to write
+  __VERIFIER_assert(v[0] == 'X'); // <-- wrong, the only thread that writes 'Y' COULD be the last to write
+
+  free(v);
+  v = NULL;
 
   return 0;
 }

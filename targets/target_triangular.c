@@ -17,10 +17,10 @@ void reach_error() { __builtin_trap(); }
 
 #include <stdio.h>
 
-int i = 3, j = 6;
+int i = 0, j = 0;
 
-#define NUM 20000
-#define LIMIT (2*NUM+6)
+#define NUM 20
+#define LIMIT (2*NUM)
 
 void *t1(void *arg) {
   for (int k = 0; k < NUM; k++) {
@@ -28,6 +28,7 @@ void *t1(void *arg) {
     i = j + 1;
     __VERIFIER_atomic_end();
   }
+  return NULL;
 }
 
 void *t2(void *arg) {
@@ -36,22 +37,24 @@ void *t2(void *arg) {
     j = i + 1;
     __VERIFIER_atomic_end();
   }
+  return NULL;
 }
 
-int fuzz_target(int argc, char **argv) {
+int fuzz_target() {
   pthread_t id1, id2;
 
-  // printf("Starting test\n");
+  i = 0;
+  j = 0;
 
-  pthread_create(&id1, NULL, t1, NULL);
   pthread_create(&id2, NULL, t2, NULL);
+  pthread_create(&id1, NULL, t1, NULL);
 
   __VERIFIER_atomic_begin();
-  int condI = i >= LIMIT;
+  int condI = (i >= LIMIT);
   __VERIFIER_atomic_end();
 
   __VERIFIER_atomic_begin();
-  int condJ = j >= LIMIT;
+  int condJ = (j >= LIMIT);
   __VERIFIER_atomic_end();
 
   if (condI || condJ) {

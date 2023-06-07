@@ -167,7 +167,7 @@ void StringBuffer::expandCapacity(int minimumCapacity) {
 BEGIN MAIN
 */
 
-StringBuffer *buffer = new StringBuffer("abc");
+StringBuffer *buffer;
 
 extern "C" void *thread_main(void *args) {
   //while (1) {
@@ -180,6 +180,7 @@ extern "C" void *thread_main(void *args) {
 extern "C" int fuzz_target(int argc, char *argv[]) {
   pthread_t thd;
   int rc;
+  buffer = new StringBuffer("abc");
 
   rc = pthread_create(&thd, NULL, thread_main, NULL);
 
@@ -190,5 +191,7 @@ extern "C" int fuzz_target(int argc, char *argv[]) {
 
   pthread_join(thd, NULL);
 
+  delete buffer;
+  
   return 0;
 }

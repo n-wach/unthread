@@ -11,6 +11,8 @@ void reach_error() { __builtin_trap(); }
 
 #include <stdio.h>
 
+#define printf(...)
+
 #undef assert
 #define assert(e) if (!(e)) ERROR: reach_error()
 
@@ -156,6 +158,10 @@ void *thr2(void *_) {
 }
 
 int fuzz_target() {
+  flag1 = 0, 
+  flag2 = 0;
+  x = 0;
+
   pthread_t t1, t2;
   pthread_create(&t1, 0, thr1, 0);
   pthread_create(&t2, 0, thr2, 0);

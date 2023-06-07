@@ -15,10 +15,11 @@ void assume_abort_if_not(int cond) {
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <memory.h>
 
 #define TRUE	  (1)
 #define FALSE	  (0) 
-#define SIZE	  (800)
+#define SIZE	  (20)
 #define OVERFLOW  (-1)
 #define UNDERFLOW (-2)
 
@@ -34,26 +35,31 @@ void error(void)
 
 void inc_top(void)
 {
+  pthread_yield();
   top++;
 }
 
 void dec_top(void)
 {
+  pthread_yield();
   top--;
 }
 
 int get_top(void)
 {
+  pthread_yield();
   return top;
 }
 
 int stack_empty(void)
 {
+  pthread_yield();
   return (top==0) ? TRUE : FALSE;
 }
 
 int push(unsigned int *stack, int x)
 {
+  pthread_yield();
   if (top==SIZE) 
   {
     printf("stack overflow\n");
@@ -69,6 +75,7 @@ int push(unsigned int *stack, int x)
 
 int pop(unsigned int *stack)
 {
+  pthread_yield();
   if (top==0) 
   {
     printf("stack underflow\n");	
@@ -107,7 +114,7 @@ void *t2(void *arg)
   {
     pthread_mutex_lock(&m);
     if (top>0)
-    {    
+    {
       if ((pop(arr)==UNDERFLOW))
         error();
     }    
@@ -117,8 +124,11 @@ void *t2(void *arg)
 }
 
 
-int fuzz_target(void) 
-{
+int fuzz_target(void) {
+  top=0;
+  memset(arr, 0, sizeof(arr));
+  flag=FALSE;
+
   pthread_t id1, id2;
 
   pthread_mutex_init(&m, 0);
@@ -128,6 +138,8 @@ int fuzz_target(void)
 
   pthread_join(id1, NULL);
   pthread_join(id2, NULL);
+
+  pthread_mutex_destroy(&m);
 
   return 0;
 }

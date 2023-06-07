@@ -33,11 +33,17 @@ typedef struct Simple_Stack Simple_Stack;
 struct Simple_Stack {
     Cell *ptop;
 };
+
 Simple_Stack S;
 ThreadInfo *location[8];
 int collision;
-
 int unique_id = 0;
+ThreadInfo threads[4];
+int allocated[4];
+int PushOpen[2];
+int PushDone[2];
+int PopOpen;
+int PopDone[3];
 
 void StackOp(ThreadInfo *p);
 int TryPerformStackOp(ThreadInfo *p);
@@ -90,9 +96,6 @@ int atomic_c_cas(Cell * *p, Cell* cmp, Cell* new) {
     __VERIFIER_atomic_end();
     return ret;
 }
-ThreadInfo threads[4];
-int allocated[4];
-
 ThreadInfo* malloc_ThreadInfo() {
     __VERIFIER_atomic_begin();
     int i =  abs(rand()) % 4;
@@ -214,6 +217,20 @@ int TryCollision(ThreadInfo * p, ThreadInfo * q, int him) {
 
 void Init() {
     S.ptop = NULL;
+    collision = 0;
+    unique_id = 0;
+    allocated[0] = 0;
+    allocated[1] = 0;
+    allocated[2] = 0;
+    allocated[3] = 0;
+    PushOpen[0] = 0;
+    PushOpen[1] = 0;
+    PushDone[0] = 0;
+    PushDone[1] = 0;
+    PopOpen = 0;
+    PopDone[0] = 0;
+    PopDone[1] = 0;
+    PopDone[2] = 0;
 }
 
 void Push(int x) {
@@ -237,11 +254,6 @@ int Pop() {
     free_ThreadInfo(ti);
     return v;
 }
-
-int PushOpen[2];
-int PushDone[2];
-int PopOpen;
-int PopDone[3];
 
 void checkInvariant() {
     if (!(PopDone[0] <= PushDone[0] + PushOpen[0] && PopDone[1] <= PushDone[1] + PushOpen[1])) {reach_error();}

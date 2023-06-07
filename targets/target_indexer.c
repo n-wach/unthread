@@ -14,6 +14,7 @@ void reach_error() { __builtin_trap(); }
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <memory.h>
 
 #define SIZE  128
 #define MAX   4
@@ -80,6 +81,7 @@ void * thread_routine(void * arg)
 int fuzz_target()
 {
   int i, arg;
+  memset(table, 0, sizeof(table));
 
   for (i = 0; i < SIZE; i++)
     pthread_mutex_init(&cas_mutex[i], NULL);

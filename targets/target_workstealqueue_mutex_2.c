@@ -9,8 +9,8 @@
 
 #include <assert.h>
 void reach_error() { __builtin_trap(); }
-#define __VERIFIER_atomic_begin() pthread_yield();
-#define __VERIFIER_atomic_end() pthread_yield();
+#define __VERIFIER_atomic_begin() pthread_yield()
+#define __VERIFIER_atomic_end() pthread_yield()
 #undef assert
 #define assert(X) if(!(X)) reach_error()
 
@@ -158,8 +158,10 @@ _Bool Steal(Obj **result) {
     //
     if (h < readV(&q.tail)) {
         // == (h+1 <= tail) == (head <= tail)
-        //
-        // BUG: writeV(&q.head, h + 1);
+        
+        // BUG: 
+        writeV(&q.head, h + 1);
+        
         long temp = h & q.mask;
         *result = q.elems[temp];
         found = 1;
@@ -212,7 +214,8 @@ _Bool Pop(Obj **result) {
     // insert a memory fence here if memory is not sequentially consistent
     //
     if (readV(&q.head) <= t) {
-        // BUG:  writeV(&q.tail, t);
+        // BUG:  
+        writeV(&q.tail, t);
 
         // == (head <= tail)
         //
