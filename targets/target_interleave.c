@@ -1,4 +1,4 @@
-#include "src/include/pthread.h"
+#include <pthread.h>
 #include <stdio.h>
 
 void* incr(int* val) {

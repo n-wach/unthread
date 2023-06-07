@@ -27,6 +27,16 @@ def make_fuzz_target_library(name, src):
             "-I src/include",
         ]
     )
+    native.cc_library(
+        name = name + "_pthread",
+        srcs = [src],
+        visibility = ["//visibility:public"],
+        copts = [
+            "-fsanitize-coverage=trace-pc-guard,pc-table,trace-cmp,control-flow",
+            "-O2",
+            "-gline-tables-only",
+        ],
+    )
 
 def make_fuzz_target_fuzzers(name):
     native.cc_binary(
@@ -52,6 +62,15 @@ def make_fuzz_target_fuzzers(name):
         copts = [
             "-I src/include",
         ]
+    )
+    native.cc_binary(
+        name = name + "_fuzz_pthread",
+        srcs = ["fuzz_pthread.c"],
+        deps = [
+            ":" + name + "_pthread",
+            "@com_google_fuzztest//centipede:centipede_runner",
+        ],
+        visibility = ["//visibility:public"],
     )
 
 

@@ -1,4 +1,9 @@
-#include "src/include/pthread.h"
+#include <pthread.h>
+#ifndef UNTHREAD
+#error "Should be using Unthread"
+#endif
+
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 

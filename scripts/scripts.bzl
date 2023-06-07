@@ -1,31 +1,24 @@
-def make_fuzz_script(name):
+def make_fuzz_script(name, fuzz_type):
     native.sh_binary(
-        name = name + "_fuzz_schedule",
+        name = name + "_" + fuzz_type,
         srcs = ["fuzz.sh"],
         data = [
             "@com_google_fuzztest//centipede:centipede",
-            "//targets:" + name + "_fuzz_schedule",
+            "//targets:" + name + "_" + fuzz_type,
         ],
         args = [
             "$(location @com_google_fuzztest//centipede:centipede)",
-            "$(location //targets:" + name + "_fuzz_schedule)",
+            "$(location //targets:" + name +"_" + fuzz_type + ")",
         ],
     )
-    native.sh_binary(
-        name = name + "_fuzz_seed",
-        srcs = ["fuzz.sh"],
-        data = [
-            "@com_google_fuzztest//centipede:centipede",
-            "//targets:" + name + "_fuzz_seed",
-        ],
-        args = [
-            "$(location @com_google_fuzztest//centipede:centipede)",
-            "$(location //targets:" + name + "_fuzz_seed)",
-        ],
-    )
+
+def make_fuzz_scripts_for_specific(name):
+    make_fuzz_script(name, "fuzz_schedule")
+    make_fuzz_script(name, "fuzz_seed")
+    make_fuzz_script(name, "fuzz_pthread")
 
 
 def make_fuzz_scripts(names):
     for name in names:
-        make_fuzz_script(name)
+        make_fuzz_scripts_for_specific(name)
 
