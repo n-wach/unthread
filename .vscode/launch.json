@@ -6,10 +6,10 @@
     "configurations": [
         {
             "name": "Debug interleave-main",
-            "preLaunchTask": "build-interleave-main",
+            //"preLaunchTask": "build-interleave-main",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bazel-bin/targets/interleave_main",
+            "program": "${workspaceFolder}/bazel-bin/targets/stringbuffer_main",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

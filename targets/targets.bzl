@@ -1,7 +1,7 @@
-def make_fuzz_target(name):
+def make_fuzz_target_library(name, src):
     native.cc_library(
         name = name,
-        srcs = ["target_" + name + ".c"],
+        srcs = [src],
         visibility = ["//visibility:public"],
         deps = [
             "//src:unthread",
@@ -16,7 +16,7 @@ def make_fuzz_target(name):
     native.cc_binary(
         name = name + "_main",
         srcs = [
-            "target_" + name + ".c",
+            src,
             "main.c",
         ],
         deps = [
@@ -27,6 +27,8 @@ def make_fuzz_target(name):
             "-I src/include",
         ]
     )
+
+def make_fuzz_target_fuzzers(name):
     native.cc_binary(
         name = name + "_fuzz_schedule",
         srcs = ["fuzz_schedule.c"],
@@ -51,6 +53,11 @@ def make_fuzz_target(name):
             "-I src/include",
         ]
     )
+
+
+def make_fuzz_target(name):
+    make_fuzz_target_library(name, "target_" + name + ".c")
+    make_fuzz_target_fuzzers(name)
 
 
 def make_fuzz_targets(names):

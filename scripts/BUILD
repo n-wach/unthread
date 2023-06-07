@@ -21,5 +21,6 @@ make_fuzz_scripts(
         # "szymanski", # deadlocks. (infinite loop)
         "phase_1", # deadlocks, detected.
         "deadlock_1", # deadlocks, detected.
+        "stringbuffer",
     ]
 )
