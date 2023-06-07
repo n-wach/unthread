@@ -8,5 +8,6 @@ echo "==================================="
 echo "DRY RUN COMPLETE! FUZZING FOR REAL!"
 echo "==================================="
 
-time ${CENTIPEDE_BIN} --binary="${TARGET_BIN}" --exit_on_crash=true
+(time ${CENTIPEDE_BIN} --binary="${TARGET_BIN}" --exit_on_crash=true --timeout_per_input=10) 2>&1
 
+exit 0

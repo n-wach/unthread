@@ -36,7 +36,9 @@ void *thread3(void *arg)
   return 0;
 }
 
-#define NUM_THREADS 10
+#define NUM_BEFORE 3
+#define NUM_AFTER 7
+#define NUM_THREADS (NUM_BEFORE + NUM_AFTER)
 
 void *thread0(void *arg)
 {
@@ -46,11 +48,14 @@ void *thread0(void *arg)
   pthread_create(&init, 0, thread1, 0);
   pthread_join(init, 0);
 
-  pthread_create(&last, 0, thread3, 0); // this thread must run last to trigger the bug.
-
-  for(int i=0; i<NUM_THREADS; i++) {
+  for(int i=0; i<NUM_BEFORE; i++) {
     pthread_create(&others[i], 0, thread2, 0);
   }
+  pthread_create(&last, 0, thread3, 0); // this thread must run last to trigger the bug.
+  for(int i=0; i<NUM_AFTER; i++) {
+    pthread_create(&others[NUM_BEFORE + i], 0, thread2, 0);
+  }
+
   for(int i=0; i<NUM_THREADS; i++) {
     pthread_join(others[i], 0);
   }
