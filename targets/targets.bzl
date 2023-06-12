@@ -11,6 +11,7 @@ def make_fuzz_target_library(name, src):
             "-fsanitize-coverage=trace-pc-guard,pc-table,trace-cmp,control-flow",
             "-O2",
             "-gline-tables-only",
+            "-fno-omit-frame-pointer",
         ],
     )
     native.cc_binary(
@@ -35,6 +36,7 @@ def make_fuzz_target_library(name, src):
             "-fsanitize-coverage=trace-pc-guard,pc-table,trace-cmp,control-flow",
             "-O2",
             "-gline-tables-only",
+            "-fno-omit-frame-pointer",
         ],
     )
 

@@ -10,6 +10,7 @@ cc_library(
     copts = [
         "-std=gnu17",
         "-I src/include",
+        "-fno-omit-frame-pointer",
     ],
     visibility = [
         "//visibility:public",

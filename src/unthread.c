@@ -203,6 +203,9 @@ struct pthread_fiber {
   int sched_policy;
   struct sched_param sched_param;
 
+  // A hash of the callstack of this thread. Used for fuzzing features.
+  uint64_t callstack_hash;
+
   __attribute__((aligned(16))) char stack[];
 };
 
@@ -226,6 +229,7 @@ static struct pthread_fiber main_thread = {
     .cancel_type = PTHREAD_CANCEL_DEFERRED,
     .sched_policy = SCHED_OTHER,
     .list_index = {-1, -1},
+    .callstack_hash = 69420, // dummy value
 };
 
 // Current running thread
@@ -567,6 +571,59 @@ static bool multiset_remove(struct pthread_multiset *set, pthread_t thread) {
   }
 }
 
+// Fuzzing features for centipede
+// concurrency-coverage metric representing each context switch by callstacks.
+#define NUM_UNTHREAD_FEATURES 10000
+#define DOMAIN ((uint64_t) 1)
+__attribute__((used, retain, section("__centipede_extra_features")))
+static uint64_t extra_features[NUM_UNTHREAD_FEATURES];
+static size_t extra_features_index = 0;
+
+// extra_features_index doesn't need to be reset as long as we cycle it.
+// centipede clears the array at the start of each fuzzing iteration,
+// and where we insert features doesn't matter. And if we loop and 
+// overwrite them--oh well. Ideally we wouldn't include duplicates, but 
+// that would be slow unless we do something clever...
+#define record_feature(hash) \
+  do { \
+    extra_features[extra_features_index] = (DOMAIN << 32) | (hash); \
+    extra_features_index = (extra_features_index + 1) % NUM_UNTHREAD_FEATURES; \
+  } while (0)
+// Maybe this would work better?? Avoids duplicates...
+#define record_feature(hash) \
+  if (extra_features[hash % NUM_UNTHREAD_FEATURES] == 0) { \
+    extra_features[hash % NUM_UNTHREAD_FEATURES] = (DOMAIN << 32) | (hash); \
+  }
+
+// For debugging, it can be helpful to subtract __executable_start from
+// return addresses to make the callstacks more readable.
+extern char __executable_start;
+
+#define safe_return_address(level) ((void *) ((__builtin_frame_address(level) == 1) ? \
+  0 : (uint64_t) (__builtin_extract_return_addr(__builtin_return_address(level)) - (uint64_t)&__executable_start) & 0xffff) )
+
+static void set_stack_info(pthread_t from, pthread_t to) {
+  // set the stack_info of the thread we're switching from
+  // and record as a fuzzing feature the tuple (from, to)
+
+  void *func1 = safe_return_address(1);
+  void *func2 = safe_return_address(2);
+  void *func3 = safe_return_address(3);
+  void *func4 = safe_return_address(4);
+  printf("callstack: %p %p %p %p\n", func1, func2, func3, func4);
+
+  // hash them together to 32-bit
+  // this could definitely be done better... I know nothing about hashing...
+  uint32_t hash = (uint32_t)func1;// ^ (uint32_t)func2 ^ (uint32_t)func3 ^ (uint32_t)func4;
+  printf("hash: %u\n", hash);
+  from->callstack_hash = hash;
+
+  // hash and record the tuple of this context switch
+  uint32_t tuple_hash = (rotl(hash * 5, 7) ^ to->callstack_hash);
+  printf("tuple hash: %u\n", tuple_hash);
+  record_feature(tuple_hash);
+}
+
 // Yield without marking the current thread as ready
 static bool yield(enum thread_state blocked_state) {
   CHECK(EXIT_DEADLOCK, threads_ready.len != 0, "Deadlock");
@@ -579,6 +636,8 @@ static bool yield(enum thread_state blocked_state) {
     LOG("%u yielding to %u", current->id, yield_to->id);
 
     pthread_t this_thread = current;
+
+    set_stack_info(this_thread, yield_to);
 
     if (_setjmp(this_thread->jmp) == 0) {
       _longjmp(yield_to->jmp, 1);
@@ -723,6 +782,7 @@ int unthread_create(pthread_t *thread, const pthread_attr_t *attr,
       .cancel_state = PTHREAD_CANCEL_ENABLE,
       .cancel_type = PTHREAD_CANCEL_DEFERRED,
       .list_index = {-1, -1},
+      .callstack_hash = id,
   };
 
   *thread = child;
