@@ -203,8 +203,10 @@ struct pthread_fiber {
   int sched_policy;
   struct sched_param sched_param;
 
+  #ifdef CENTIPEDE_USER_FEATURES
   // A hash of the callstack of this thread. Used for fuzzing features.
   uint64_t callstack_hash;
+  #endif
 
   __attribute__((aligned(16))) char stack[];
 };
@@ -229,7 +231,9 @@ static struct pthread_fiber main_thread = {
     .cancel_type = PTHREAD_CANCEL_DEFERRED,
     .sched_policy = SCHED_OTHER,
     .list_index = {-1, -1},
+  #ifdef CENTIPEDE_USER_FEATURES
     .callstack_hash = 69420, // dummy value
+  #endif
 };
 
 // Current running thread
@@ -573,6 +577,7 @@ static bool multiset_remove(struct pthread_multiset *set, pthread_t thread) {
 
 // Fuzzing features for centipede
 // concurrency-coverage metric representing each context switch by callstacks.
+#ifdef CENTIPEDE_USER_FEATURES
 #define NUM_UNTHREAD_FEATURES 10000
 #define DOMAIN ((uint64_t) 1)
 __attribute__((used, retain, section("__centipede_extra_features")))
@@ -602,7 +607,7 @@ extern char __executable_start;
 #define safe_return_address(level) ((void *) ((__builtin_frame_address(level) == 1) ? \
   0 : (uint64_t) (__builtin_extract_return_addr(__builtin_return_address(level)) - (uint64_t)&__executable_start) & 0xffff) )
 
-static void set_stack_info(pthread_t from, pthread_t to) {
+static void record_context_switch(pthread_t from, pthread_t to) {
   // set the stack_info of the thread we're switching from
   // and record as a fuzzing feature the tuple (from, to)
 
@@ -614,7 +619,7 @@ static void set_stack_info(pthread_t from, pthread_t to) {
 
   // hash them together to 32-bit
   // this could definitely be done better... I know nothing about hashing...
-  uint32_t hash = (uint32_t)func1;// ^ (uint32_t)func2 ^ (uint32_t)func3 ^ (uint32_t)func4;
+  uint32_t hash = (uint32_t)func1 ^ (uint32_t)func2 ^ (uint32_t)func3 ^ (uint32_t)func4;
   printf("hash: %u\n", hash);
   from->callstack_hash = hash;
 
@@ -623,6 +628,7 @@ static void set_stack_info(pthread_t from, pthread_t to) {
   printf("tuple hash: %u\n", tuple_hash);
   record_feature(tuple_hash);
 }
+#endif // CENTIPEDE_USER_FEATURES
 
 // Yield without marking the current thread as ready
 static bool yield(enum thread_state blocked_state) {
@@ -637,7 +643,9 @@ static bool yield(enum thread_state blocked_state) {
 
     pthread_t this_thread = current;
 
-    set_stack_info(this_thread, yield_to);
+    #if CENTIPEDE_FEATURES
+    record_context_switch(this_thread, yield_to);
+    #endif
 
     if (_setjmp(this_thread->jmp) == 0) {
       _longjmp(yield_to->jmp, 1);
@@ -782,7 +790,9 @@ int unthread_create(pthread_t *thread, const pthread_attr_t *attr,
       .cancel_state = PTHREAD_CANCEL_ENABLE,
       .cancel_type = PTHREAD_CANCEL_DEFERRED,
       .list_index = {-1, -1},
+    #ifdef CENTIPEDE_USER_FEATURES
       .callstack_hash = id,
+    #endif
   };
 
   *thread = child;
