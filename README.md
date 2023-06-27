@@ -1,3 +1,7 @@
+This project is a fork of [`mpdf/unthread`](https://github.com/mpdn/unthread), to test performance
+and integrate with a modern coverage-guided fuzzer. See [`report/report.pdf`](/report/report.pdf) for results and more
+information.
+
 Unthread
 ========
 
@@ -16,7 +20,7 @@ With some caveats:
   core.
 - **No preemption**: Control is only transfered at "yield points", which includes most pthread
   functions. This means that code cannot depend on other threads making progress by eg. waiting in a
-  loop until some condition is met. `pthread_yield` can be inserted in these cases to provide a
+  loop until some condition is met. `sched_yield` can be inserted in these cases to provide a
   yield point.
 - **Non-conformance**: Not being a "real" pthreads implementation that integrates with the system
   means some parts of the POSIX spec are difficult/impossible to implement:
@@ -24,131 +28,49 @@ With some caveats:
     cancellation points.
   - Process shared objects are not supported (`PTHREAD_PROCESS_SHARED`).
   - Signal handling is not supported.
-- **Glibc only**: Only Glibc is supported at the moment. PR's welcome!
 - **Incomplete**: Unthread is a work in progress and some pthread features have not been implemented
   yet:
   - Robust mutexes.
   - Semaphores.
 
-Example
--------
-
-Here is a example from the Unthread test suite of a program with a race condition:
-
-```c
-#include <stdio.h>
-#include <pthread.h>
-#include <stdlib.h>
-
-static int val = 0;
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-
-void* incr(void* arg) {
-    int v;
-    
-    pthread_mutex_lock(&mutex);
-    v = val;
-    pthread_mutex_unlock(&mutex);
-
-    pthread_mutex_lock(&mutex);
-    val = v + 1;
-    pthread_mutex_unlock(&mutex);
-
-    return NULL;
-}
-
-int main() {
-    pthread_t a,b;
-    pthread_create(&a, NULL, incr, NULL);
-    pthread_create(&b, NULL, incr, NULL);
-    pthread_join(a, NULL);
-    pthread_join(b, NULL);
-    printf("%d", val);
-    
-    return 0;
-}
-```
-
-This program has no data-races as all access to `val` is protected behind a mutex. But it *does*
-have a scheduling-based race condition as the final value it outputs depends on the scheduling
-order. For this particular example and my particular machine/OS, this non-determinism does occur
-under standard pthreads given enough executions:
-
-```console
-$ make bin/mutex-pthread
-$ seq 1000 | xargs -i bin/mutex-pthread
-2222222222222222222222222222222222222212222222222222222122222222222222222222222222222222222222222222
-2222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222
-2222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222
-2222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222
-2222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222
-2222222222212222222222222222222222222222222222222222222222222222222222222122222222222222222222222222
-2222222221222222222222222222222222222222222222222222222222222222222222222222222222222222222221222222
-2222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222
-2222222222222222222222222222221222222222222222222222222222222222221222222222222222222222222222222222
-2222222222222222222222222222222222222222222222222222222222222222222222222222222122222222222222222222
-```
-
-This is not true in the general case. It might be that a race condition only shows under some
-special conditions, like high load, a certain os, or certain hardware. To make matters worse,
-debuggers can affect timings such that race conditions disappear. Unthread allows us to test this in
-a structured way instead of just hoping that we are able to trigger non-deterministic behavior.
-
-Let us say that the expected value is 2 in the above example is 2 and the buggy value is 1. We can
-test this using the `unthread-fuzz` utility. By default, this program just executes the program with
-different seeds until it returns with a non-zero return code, in which case the failing seed is
-printed to standard out.
-
-```console
-$ make bin/mutex
-$ make bin/unthread-fuzz
-$ bin/unthread-fuzz sh -c '[ $(bin/mutex) -eq "2" ]'
-f503e38ee865d082f5773198fb24df71
-```
-
-It found a failing seed! We can execute the program with the given seed and get the exact same
-result each time:
-
-```console
-$ UNTHREAD_SEED=f503e38ee865d082f5773198fb24df71 bin/mutex
-1
-```
-
-The program can then be debugged with standard debuggers like GDB or similar.
-
 Usage
 -----
 
-Build Unthread by running `make` in this dir (or add it to your build). Then link to Unthread
-instead of pthread and use the Unthread include dir. Eg. instead of `cc main.c -lpthread` do
-`cc main.c -Lunthread/bin/unthread.o -I unthread/include`. Optionally also include the
-`include-util` dir.
+Unthread provides a library and a header file. We use the bazel build system. The library is
+`//src:unthread`. The header overrides `pthread.h` to point all `pthread` functions to their 
+`unthread` counterparts, which are implemented in the library. 
 
-The thread schedule (i.e. the sequence in which threads yield to each other) can be defined in the
-following ways:
-- By setting the environment variable `UNTHREAD_SEED` to a 32-character hexadecimal string. Unthread
-  will use this to seed a PRNG that then picks the thread schedule.
-- By setting the environment variable `UNTHREAD_FILE` to point to a file that will be used as
-  entropy source for the thread schedule. This could for example be random noise to get a random
-  execution (much like setting `UNTHREAD_SEED`) or it could be the result of a instrumented fuzzing
-  process. When using file schedule input, Unthread will exit if the entropy file is depleted.
-- By setting neither, in which case the standard input is used as an entropy source like it would be
-  from a file.
+To use unthread you must overwrite `pthread.h` using a compiler flag like `-I src/include`; and
+link the target to `unthread`. Example fuzz targets can be found under `targets/`. These use the
+centipede fuzzer. Scripts to run the binaries can be found under `scripts/`.
 
-Using Unthread with libraries that themselves link to pthread will need to be rebuilt with Unthread.
-Good luck. :)
+The thread schedule (i.e. the sequence in which threads yield to each other) can be defined with 
+`unthread_configure` in two ways:
 
-Configuration
--------------
+```C
+// Schedule data
+unthread_configure((struct entropy_configuration){
+  .entropy_source = ENTROPY_SCHEDULE,
+  .schedule = {
+    .data = /* pointer to array of uint32_t */,
+    .data_len = /* length of array */,
+    .end_behavior = SCHEDULE_END_ZEROS, 
+    // Or SCHEDULE_END_LOOP, SCHEDULE_END_EXIT, SCHEDULE_END_TRAP
+  },
+});
 
-Unthread can be configured by setting the following environment variables:
+// PRNG Seed
+unthread_configure((struct entropy_configuration){
+  .entropy_source = ENTROPY_PRNG_SEED,
+  .prng_seed = {
+    .state = /* nonzero uint32[4] */ {0xdeadbeef, 0x13371337, 0x0, 0x1},
+  },
+});
+```
 
-| Environment variable | Use                              |
-|----------------------|----------------------------------|
-| UNTHREAD_SEED        | Seed for thread schedule         |
-| UNTHREAD_FILE        | Entropy file for thread schedule |
-| UNTHREAD_VERBOSE     | `true` for verbose logging       |
-| UNTHREAD_RET_OFFSET  | Return code offset               |
+These should be called in your fuzzing driver, prior to calling target code.
+
+You can also set the environment variable `UNTHREAD_VERBOSE=true` to print scheduling decisions.
 
 Return codes
 ------------
@@ -168,62 +90,7 @@ Unthread may stop the application under a number of conditions:
 In case that the retcode clashes with the retcode of the application, the default retcode offset of
 40 can be changed by setting the `UNTHREAD_RET_OFFSET` environment variable.
 
-Testing
--------
-
-The Unthread test runner requires Python 3 to be installed.
-
-Unthread is tested by the Unthread tests in the `test-src` dir and a set of tests from the POSIX
-Test Suite project in the `posixtestsuite`. See the
-[POSIX Test Suite project site](https://sourceforge.net/projects/posixtest) for more information on
-the POSIX Test Suite.
-
-Unthread tests in the `test-src` directory are examples of non-deterministic pthread programs that
-are deterministic in Unthread with a given seed. The tests contains a spec containing all the
-possible outcomes of running the test, and a list of seeds in a seperate `.seeds` file. These seeds
-*must* cover all the possible outcomes or the test will fail. When emodifying Unthread, it may be
-necessary to generate new seeds by executing `UNTHREAD_GEN=true make test`.
-
-The above will only generate the minimum number of seeds to cover the outcomes. Additional fuzzing
-can be done by executing `UNTHREAD_ITER=N make unthread-fuzz` where `N` is the number of iterations
-to fuzz.
-
 Next Steps
 ----------
 
-Ned notes:
-
-0. Current status
-  0. Intercepting doesn't work (startup and ASAN, etc.)
-  1. Recompile target with a header to change names (reasonable because we already recompile with FUZZING flag)
-  2. Centipede drastically sped up schedule-fuzz (~1s). Slowed down seed-fuzz (20hr+)
-  3. Easy to add custom features with centipede.
-
-1. I need more tests/examples. Unclear where to get them.
-  1. SV-COMP Suite (used by por-se)
-  2. GNU sort
-  3. memcache
-
-  4. fuzz-bench??
-  5. Targets in OSS-Fuzz? look for race conditions. https://bugs.chromium.org/p/oss-fuzz/issues/list?q=race&can=1
-    0. https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=9417
-    1. https://github.com/libvips/libvips/blob/4176ab21061f425b4ee274f7f9c6634dacf5ca7c/fuzz/webpsave_buffer_fuzzer.cc#L6
-    2. https://github.com/libjxl/libjxl/blob/2ee9886a7c3b31564f7431812bb6c6a4a03927b2/lib/threads/thread_parallel_runner_internal.cc#L190
-    3. 
-  
-  6. bind?
-  7. chrome? webworkers
-  8. curl?
-  9. envoy proxy?
- 10. ???
- 11. a
-
-2. Coverage metrics: before any longjmp/swapcontext, use libunwind to get a hash of the thread's stack. Store this somewhere, and delete if thread ever terminates. Whenever there is a *scheduling decision*, get all thread stack hashes, and hash them together, somehow also encoding the decision. This is a the concurrency coverage feature to report.
-  1. module boundary
-  2. only consider a few frames, otherwise going to be very noisy
-
-
-See also
---------
-
-[rr](https://rr-project.org/), a gdb debugger with deterministic replay.
+See the report.

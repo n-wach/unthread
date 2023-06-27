@@ -1,0 +1,108 @@
+@InProceedings{por-se,
+author="Schemmel, Daniel
+and B{\"u}ning, Julian
+and Rodr{\'i}guez, C{\'e}sar
+and Laprell, David
+and Wehrle, Klaus",
+editor="Lahiri, Shuvendu K.
+and Wang, Chao",
+title="Symbolic Partial-Order Execution for Testing Multi-Threaded Programs",
+booktitle="Computer Aided Verification",
+year="2020",
+publisher="Springer International Publishing",
+address="Cham",
+pages="376--400",
+abstract="We describe a technique for systematic testing of multi-threaded programs. We combine Quasi-Optimal Partial-Order Reduction, a state-of-the-art technique that tackles path explosion due to interleaving non-determinism, with symbolic execution to handle data non-determinism. Our technique iteratively and exhaustively finds all executions of the program. It represents program executions using partial orders and finds the next execution using an underlying unfolding semantics. We avoid the exploration of redundant program traces using cutoff events. We implemented our technique as an extension of KLEE and evaluated it on a set of large multi-threaded C programs. Our experiments found several previously undiscovered bugs and undefined behaviors in memcached and GNU sort, showing that the new method is capable of finding bugs in industrial-size benchmarks.",
+isbn="978-3-030-53288-8"
+}
+
+@misc{sockfuzzer,
+author="Google Project Zero",
+title="SockFuzzer",
+url={https://github.com/googleprojectzero/SockFuzzer}}
+
+@misc{concurrence,
+author="Google Project Zero",
+title="Concurrence",
+url={https://github.com/googleprojectzero/SockFuzzer/blob/1bf18a775ee886af7cfe1c0fc858b19c09e1352e/third_party/concurrence/}
+}
+
+@misc{sv-comp,
+title="Competition on Software Verification (SV-COMP)",
+url={https://sv-comp.sosy-lab.org},
+}
+
+@misc{concurrence_presentation,
+author="Ned Williamson", 
+title="Catch Me If You Can",
+url={https://github.com/googleprojectzero/SockFuzzer/blob/1bf18a775ee886af7cfe1c0fc858b19c09e1352e/third_party/concurrence/presentations/catch_me_if_you_can.pdf}
+}
+
+@misc{unthread,
+author="Mike Pederson",
+title="mpdn/unthread",
+url={https://github.com/mpdn/unthread}
+}
+
+@misc{unthread_pr,
+author="Nathan Wachholz",
+title="Fix memory leaks due to incorrectly set stack ownership",
+url={https://github.com/mpdn/unthread/pull/4}
+}
+
+@misc{my_unthread,
+author="Nathan Wachholz",
+title="n-wach/unthread",
+url={https://github.com/n-wach/unthread}
+}
+
+@misc{oss-fuzz,
+author="Google",
+title="OSS-Fuzz: continuous fuzzing for open source software",
+url={https://github.com/google/oss-fuzz},
+}
+
+@misc{centipede,
+author="Google",
+title="Centipede - a distributed fuzzing engine. Work-in-progress.",
+url={https://github.com/google/fuzztest/tree/main/centipede#readme}
+}
+
+@techreport{chess,
+author = {Musuvathi, Madan and Qadeer, Shaz and Ball, Thomas},
+title = {CHESS: A systematic testing tool for concurrent software},
+year = {2007},
+abstract = {Concurrency is used pervasively in the development of large systems programs. However, concurrent programming is difficult because of the possibility of unexpected interference among concurrently executing tasks. Such interference often results in "Heisenbugs" that appear rarely and are extremely difficult to reproduce and debug. Stress testing, in which the system is run under heavy load for a long time, is the method commonly employed to flush out such concurrency bugs. This form of testing provides inadequate coverage and has unpredictable results. This paper proposes an alternative called concurrency scenario testing which relies on systematic and exhaustive testing We have implemented a tool called CHESS for performing concurrency scenario testing of systems programs. CHESS uses model checking techniques to systematically generate all interleaving of a given scenario. CHESS scales to large concurrent programs and has found numerous previously unknown bugs in systems that had been stress tested for many months prior to being tested by CHESS. For each bug, CHESS is able to consistently reproduce an erroneous execution manifesting the bug, thereby making it significantly easier to debug the problem. CHESS has been integrated into the test frameworks of many code bases inside Microsoft and is being used by testers on a daily basis.},
+url = {https://www.microsoft.com/en-us/research/publication/chess-a-systematic-testing-tool-for-concurrent-software/},
+pages = {16},
+number = {MSR-TR-2007-149},
+}
+
+@article{cfp,
+author = {Deng, Dongdong and Zhang, Wei and Lu, Shan},
+title = {Efficient Concurrency-Bug Detection across Inputs},
+year = {2013},
+issue_date = {October 2013},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {48},
+number = {10},
+issn = {0362-1340},
+url = {https://doi.org/10.1145/2544173.2509539},
+doi = {10.1145/2544173.2509539},
+abstract = {In the multi-core era, it is critical to efficiently test multi-threaded software and expose concurrency bugs before software release. Previous work has made significant progress in detecting and validating concurrency bugs under a given input. Unfortunately, software testing always faces large sets of test inputs, and existing techniques are still too expensive to be applied to every test input in practice.In this paper, we use open-source software to study how existing concurrency-bug detection tools work for a set of inputs. The study shows that an interleaving pattern, such as a data race or an atomicity violation, can often be exposed by many inputs. Consequently, existing bug detectors would inevitably waste their bug detection effort to generate duplicate bug reports, when applied to a set of inputs.Guided by the above study, we propose a coverage metric, Concurrent Function Pairs (CFP), to efficiently approximate how interleavings overlap across inputs. Using CFP, we have designed a new approach to detecting data races and atomicity-violation bugs for a set of inputs.Our evaluation on open-source C/C++ applications shows that our CFP-guided approach can effectively accelerate concurrency-bug detection for a set of inputs by reducing redundant detection effort across inputs.},
+journal = {SIGPLAN Not.},
+pages = {785-802},
+numpages = {18},
+keywords = {concurrency bugs, software testing, bug detection, multi-threaded software}
+}
+
+@article{ccp,
+title = {Context-Sensitive and Directional Concurrency Fuzzing for Data-Race Detection}, 
+url = {https://par.nsf.gov/biblio/10351217}, 
+DOI = {10.14722/ndss.2022.24296}, 
+abstractNote = {}, 
+journal = {Network and Distributed Systems Security (NDSS) Symposium 2022}, 
+author = {Jiang, Zu-Ming and Bai, Jia-Ju and Lu, Kangjie and Hu, Shi-Min}, 
+}
+
