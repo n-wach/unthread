@@ -1,6 +1,6 @@
 This project is a fork of [`mpdf/unthread`](https://github.com/mpdn/unthread), to test performance
-and integrate with a modern coverage-guided fuzzer. See [`report/report.pdf`](/report/report.pdf) for results and more
-information.
+and integrate with a modern coverage-guided fuzzer. See [`report/report.pdf`](/report/report.pdf) 
+for results and more information.
 
 Unthread
 ========
